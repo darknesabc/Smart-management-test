@@ -31,32 +31,40 @@
         const API_URL = "https://script.google.com/macros/s/AKfycbzXSlrAS77z17TPOQlg2XTGmx31IAuhneJSp3GEDWpdEc6oprliNInsMr6wR40-62WW/exec";
 
         async function loadList() {
-            try {
-                const res = await fetch(API_URL);
-                const data = await res.json();
-                const container = document.getElementById('list');
-                
-                if (data.length === 0) {
-                    container.innerHTML = "오늘 일정이 있는 학생이 없습니다.";
-                    return;
-                }
-
-                container.innerHTML = data.map(s => `
-                    <div class="card">
-                        <div>
-                            <div class="name">${s.name}</div>
-                            <div class="sch">📌 ${s.schedule}</div>
-                        </div>
-                        <button class="btn ${s.attended ? 'done' : ''}" 
-                                onclick="checkIn('${s.name}', this)" ${s.attended ? 'disabled' : ''}>
-                            ${s.attended ? '완료' : '출석'}
-                        </button>
-                    </div>
-                `).join('');
-            } catch (e) {
-                document.getElementById('list').innerHTML = "오류 발생: " + e.message;
-            }
+    try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        const container = document.getElementById('list');
+        
+        // 데이터가 배열(Array)이 아닌 경우 처리
+        if (!Array.isArray(data)) {
+            // 만약 서버에서 에러 메시지를 보냈다면 그 내용을 출력
+            const errorMsg = data.msg || data.error || "데이터 형식이 올바르지 않습니다.";
+            container.innerHTML = `<div style="color:red; padding:20px;">⚠️ 서버 메시지: ${errorMsg}</div>`;
+            return;
         }
+
+        if (data.length === 0) {
+            container.innerHTML = "오늘 일정이 있는 학생이 없습니다.";
+            return;
+        }
+
+        container.innerHTML = data.map(s => `
+            <div class="card">
+                <div>
+                    <div class="name">${s.name}</div>
+                    <div class="sch">📌 ${s.schedule}</div>
+                </div>
+                <button class="btn ${s.attended ? 'done' : ''}" 
+                        onclick="checkIn('${s.name}', this)" ${s.attended ? 'disabled' : ''}>
+                    ${s.attended ? '완료' : '출석'}
+                </button>
+            </div>
+        `).join('');
+    } catch (e) {
+        document.getElementById('list').innerHTML = "연결 오류: " + e.message;
+    }
+}
 
         async function checkIn(name, btn) {
             if (!confirm(name + " 학생을 출석 처리할까요?")) return;
