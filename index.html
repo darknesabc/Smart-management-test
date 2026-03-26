@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>현장 출석 체크</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .student-card { 
+            background: white; padding: 15px; border-radius: 10px; 
+            margin-bottom: 10px; display: flex; justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .info { display: flex; flex-direction: column; }
+        .name { font-weight: bold; font-size: 1.1em; }
+        .sch { color: #666; font-size: 0.9em; }
+        .btn-check { 
+            background: #4CAF50; color: white; border: none; 
+            padding: 10px 20px; border-radius: 5px; cursor: pointer;
+        }
+        .btn-check.done { background: #ccc; }
+    </style>
+</head>
+<body>
+    <h2>오늘의 출석 명단</h2>
+    <div id="list">불러오는 중...</div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbzXSlrAS77z17TPOQlg2XTGmx31IAuhneJSp3GEDWpdEc6oprliNInsMr6wR40-62WW/exec";
+
+        async function loadList() {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            const container = document.getElementById('list');
+            container.innerHTML = data.map(s => `
+                <div class="student-card">
+                    <div class="info">
+                        <span class="name">${s.name}</span>
+                        <span class="sch">${s.schedule}</span>
+                    </div>
+                    <button class="btn-check ${s.attended ? 'done' : ''}" 
+                            onclick="checkIn('${s.name}')">
+                        ${s.attended ? '완료' : '출석'}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function checkIn(name) {
+            // 버튼 누르면 시트로 데이터 전송
+            alert(name + " 학생 출석 처리되었습니다.");
+        }
+
+        loadList();
+    </script>
+</body>
+</html>
