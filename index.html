@@ -51,6 +51,12 @@ main{max-width:1400px;margin:0 auto;padding:14px 20px 120px;display:flex;flex-di
 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
 .kpi .l{font-size:12px;color:var(--sub)}
+button.kpi{text-align:left;font:inherit;color:inherit;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+button.kpi:hover{border-color:#C9CED6}
+button.kpi.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+button.kpi .l .go{float:right;color:var(--mute)}
+button.kpi.on .l .go{color:var(--ink)}
+button.kpi:disabled{cursor:default;opacity:.55}
 .kpi .v{font-size:20px;font-weight:800;margin-top:2px}
 .kpi .v small{font-size:13px;font-weight:500;color:var(--sub)}
 .bar{height:6px;background:#E9ECF1;border-radius:9px;overflow:hidden;margin-top:6px}
@@ -260,6 +266,7 @@ table.week td.today{background:#F8FAFF}
   .top-in{padding:10px 14px}
   main{padding:10px 14px 110px}
   .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  button.kpi .l .go{display:none}
   .kpi.opt{display:none}
   .datebox{margin-left:0;width:100%;justify-content:space-between}
   nav.tabs{order:3;width:100%;overflow-x:auto;scrollbar-width:none} nav.tabs::-webkit-scrollbar{display:none}
@@ -781,12 +788,15 @@ table.week td.today{background:#F8FAFF}
     const tSel = $('absT'); const tv = tSel.value; const teachers = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
     tSel.innerHTML = '<option value="">전체</option>' + teachers.map(x => `<option ${x === tv ? 'selected' : ''}>${esc(x)}</option>`).join('');
     $('absPills').innerHTML = PT.map((p, i) => `<button type="button" data-ap="${i}" class="${i === P ? 'on' : ''} ${i === cur ? 'now' : ''}" aria-pressed="${i === P}" aria-label="${p[0]}교시">${p[0]}<span class="pk">교시</span></button>`).join('');
-    $('absKpis').innerHTML = `
-      <div class="kpi"><div class="l">${P + 1}교시 결석</div><div class="v">${absent.length} <small>/ ${live.length}명</small></div></div>
-      <div class="kpi"><div class="l">사유 없음 (확인 필요)</div><div class="v" style="color:var(--late)">${g.none.length}명</div></div>
-      <div class="kpi"><div class="l">설문</div><div class="v" style="color:#14532D">${g.survey.length}명</div></div>
-      <div class="kpi opt"><div class="l">이동</div><div class="v" style="color:#0C4A6E">${g.move.length}명</div></div>
-      <div class="kpi opt"><div class="l">스케줄</div><div class="v" style="color:var(--schInk)">${g.sch.length}명</div></div>`;
+    if (S.absF && !g[S.absF].length) S.absF = '';   // 고른 그룹이 비면 전체로
+    const F = S.absF || '';
+    const kb = (k, label, val, color) => `<button type="button" class="kpi ${F === k ? 'on' : ''}" data-af="${k}" aria-pressed="${F === k}" ${k && !g[k].length ? 'disabled' : ''}>
+        <div class="l">${label}<span class="go">${F === k ? '보는 중' : '보기 ›'}</span></div><div class="v" style="color:${color}">${val}</div></button>`;
+    $('absKpis').innerHTML = kb('', `${P + 1}교시 결석 · 전체`, `${absent.length} <small>/ ${live.length}명</small>`, 'var(--ink)')
+      + kb('none', '사유 없음 (확인 필요)', `${g.none.length}명`, 'var(--late)')
+      + kb('survey', '설문', `${g.survey.length}명`, '#14532D')
+      + kb('move', '이동', `${g.move.length}명`, '#0C4A6E')
+      + kb('sch', '스케줄', `${g.sch.length}명`, 'var(--schInk)');
     if (P > open) { $('absList').innerHTML = `<div class="empty-note">${P + 1}교시는 아직 시작 전이에요.</div>`; return; }
     const row = ({ r, rs }) => `<div class="arow2">
         <span class="num" style="width:64px;font-weight:700">${esc(r.seat)}</span>
@@ -796,7 +806,7 @@ table.week td.today{background:#F8FAFF}
         <div class="mini8" aria-label="오늘 교시별">${PT.map((p, i) => { const c = codeOf(r, i); const fut = i > open; return `<i class="${fut ? 'fut' : 's' + c} ${i === P ? 'cur' : ''}" title="${i + 1}교시 ${fut ? '' : c === '1' ? '출석' : c === '2' ? '지각' : '결석'}">${i + 1}</i>`; }).join('')}</div>
         <button type="button" class="btn-line" data-absok="${esc(r.id)}" aria-label="${esc(r.name)} ${P + 1}교시 출석으로">출석으로</button>
       </div>`;
-    const sec = (key, title, sub, color) => g[key].length ? `<section class="abs-sec"><h3><span style="color:${color}">${title} ${g[key].length}명</span><small>${sub}</small></h3>${g[key].map(row).join('')}</section>` : '';
+    const sec = (key, title, sub, color) => g[key].length && (!F || F === key) ? `<section class="abs-sec"><h3><span style="color:${color}">${title} ${g[key].length}명</span><small>${sub}</small></h3>${g[key].map(row).join('')}</section>` : '';
     $('absList').innerHTML = absent.length ? `<div style="display:flex;flex-direction:column;gap:12px">
       ${sec('none', '사유 없음', '스케줄 · 설문 · 이동 기록이 없는 결석이에요. 확인이 필요해요.', 'var(--late)')}
       ${sec('survey', '설문', '미등원 설문에 응답한 학생', '#14532D')}
@@ -806,6 +816,7 @@ table.week td.today{background:#F8FAFF}
   }
   $('absPills').onclick = (ev) => { const b = ev.target.closest('[data-ap]'); if (!b) return; S.absP = +b.dataset.ap; renderAbs(); };
   $('absT').onchange = renderAbs; $('absAllDay').onchange = renderAbs;
+  $('absKpis').onclick = (ev) => { const b = ev.target.closest('[data-af]'); if (!b || b.disabled) return; const k = b.dataset.af; S.absF = S.absF === k ? '' : k; renderAbs(); };
   $('absList').addEventListener('click', (ev) => {
     const o = ev.target.closest('[data-open]'); if (o) return openDetail(o.dataset.open, absPeriod());
     const b = ev.target.closest('[data-absok]'); if (!b) return;
