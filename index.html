@@ -246,6 +246,8 @@ table.week td.today{background:#F8FAFF}
 .rtag.out{background:#F1F2F4;color:var(--sub)}
 .rtag.sent{background:#F1F2F4;color:var(--sub)}
 .rtag.add{background:#FDECE3;color:#9A3412}
+.kio-q{height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 12px;font-size:14px;min-width:240px;background:#fff}
+@media (max-width:899px){ .kio-q{min-width:0;flex:1 1 100%} }
 .abs-mode{display:inline-flex;margin-bottom:12px;align-self:flex-start;width:max-content}
 #smsView .toolbar{margin-bottom:12px}
 .abs-mode button{min-height:40px;padding:0 18px;font-size:14px}
@@ -439,6 +441,7 @@ table.week td.today{background:#F8FAFF}
     <div class="toolbar">
       <label class="ctl">보기 <select id="kioKind"><option value="">전체</option><option value="edu">교육점수만</option><option value="move">이동만</option></select></label>
       <label class="chk"><input type="checkbox" id="kioDel"> 지운 기록도 보기</label>
+      <input type="search" id="kioQ" class="kio-q" placeholder="이름 · 좌석 · 학번 · 담임 · 사유 검색" aria-label="태블릿 기록 검색" autocomplete="off">
       <span style="margin-left:auto;font-size:13px;color:var(--sub)">학생 태블릿에서 넣은 이동 · 교육점수예요. 잘못 넣은 기록은 지우면 관리자 페이지에서도 빠져요.</span>
     </div>
     <div class="tbox" id="kioBox"></div>
@@ -1759,14 +1762,18 @@ table.week td.today{background:#F8FAFF}
   function renderKio() {
     if (!S.kio) return;
     const k = $('kioKind').value, showDel = $('kioDel').checked;
-    const rows = S.kio.filter(x => (!k || x.kind === k) && (showDel || !x.deleted));
+    const words = $('kioQ').value.trim().toLowerCase().split(/\s+/).filter(Boolean);     // 띄어 쓰면 모두 맞는 것만 (예: "임용해 지각")
+    const hay = (x) => [x.name, x.seat, x.student_id, x.teacher, x.reason, x.kind === 'edu' ? '교육점수 벌점' : '이동'].join(' ').toLowerCase();
+    const rows = S.kio.filter(x => (!k || x.kind === k) && (showDel || !x.deleted) && words.every(w => hay(x).includes(w)));
     $('kioBox').innerHTML = rows.length ? `<table class="sheet"><thead><tr><th>시간</th><th>좌석</th><th>이름</th><th>담임</th><th>구분</th><th>사유</th><th>교시</th><th></th></tr></thead><tbody>${rows.map(x => `
       <tr style="${x.deleted ? 'opacity:.45;text-decoration:line-through' : ''}"><td>${esc(x.time)}</td><td>${esc(x.seat)}</td><td><b>${esc(x.name || '')}</b> <span style="color:var(--mute)">${esc(x.student_id)}</span></td><td>${esc(x.teacher || '')}</td>
       <td>${x.kind === 'edu' ? '<b style="color:var(--late)">교육점수</b>' : '이동'}</td><td>${esc(x.reason)}</td><td>${esc(x.ret === '복귀안함' ? '복귀안함' : x.ret + '교시')}</td>
       <td>${x.deleted ? `<span style="font-size:12px">지움 · ${esc((x.deleted_by || '').split('@')[0])}</span>` : `<button type="button" class="btn-line" data-kdel="${esc(x.client_id)}">지우기</button>`}</td></tr>`).join('')}</tbody></table>`
-      : '<div style="padding:24px;color:var(--mute)">이 날 태블릿 기록이 없어요.</div>';
+      : `<div style="padding:24px;color:var(--mute)">${words.length ? '찾는 기록이 없어요.' : '이 날 태블릿 기록이 없어요.'}</div>`;
+    const tot = S.kio.filter(x => showDel || !x.deleted).length;
+    if (words.length || k) $('kioBox').insertAdjacentHTML('afterbegin', `<div style="padding:8px 12px;font-size:12px;color:var(--sub);border-bottom:1px solid var(--line2)">${rows.length}건 / 전체 ${tot}건</div>`);
   }
-  $('kioKind').onchange = renderKio; $('kioDel').onchange = renderKio;
+  $('kioKind').onchange = renderKio; $('kioDel').onchange = renderKio; $('kioQ').addEventListener('input', renderKio);
   $('kioBox').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-kdel]'); if (!b) return;
     const x = (S.kio || []).find(r => r.client_id === b.dataset.kdel); if (!x) return;
