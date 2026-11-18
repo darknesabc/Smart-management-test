@@ -214,6 +214,7 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
       <nav class="tabs" aria-label="메뉴">
         <button type="button" id="tabAtt" class="on">출결</button>
         <button type="button" id="tabStat">등원 현황</button>
+        <button type="button" id="tabImp">스케줄 올리기</button>
       </nav>
       <div class="datebox">
         <button type="button" class="icon-btn" id="prevDay" aria-label="전날">‹</button>
@@ -251,6 +252,19 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
       <span>파랑 출석 · 주황 지각 · 흰 칸 결석 · 보라 점선 = 그 교시 스케줄</span>
       <span>이름을 누르면 메모와 스케줄을 볼 수 있어요.</span>
     </div>
+  </main>
+
+  <main id="viewImp" class="hidden">
+    <section class="panel">
+      <h2>단과 수강 엑셀 올리기</h2>
+      <p style="color:var(--sub);font-size:13px;margin:0 0 12px;line-height:1.6">러셀 시스템에서 내려받은 단과 수강 파일(.xls)을 고르면, 수강기호에서 요일과 교시를 읽어 정규 스케줄로 바꿔요.<br>
+        반영하면 <b>기존 '단과' 스케줄은 시작일 전날까지로 끝나고</b> 새 내용으로 바뀌어요. 담임 선생님이 입력한 스케줄은 그대로 남아요.</p>
+      <div class="toolbar">
+        <label class="btn-line" style="display:inline-flex;align-items:center;gap:8px">파일 고르기<input type="file" id="impFile" accept=".xls,.html,.htm" class="sr"></label>
+        <span id="impName" style="color:var(--sub);font-size:13px">선택한 파일 없음</span>
+      </div>
+      <div id="impPreview"></div>
+    </section>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -473,7 +487,7 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else renderStat();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -663,6 +677,115 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
   });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('detail').classList.contains('hidden')) closeDetail(); });
 
+  // ---------- 단과 엑셀 올리기 ----------
+  //  수강기호 예: 422D3[11] → D=목, 3=저녁(7~8교시) / (A)146BD → 화·목, 시간대는 추정
+  const DAYS = 'ABCDEFG';                       // A=월 … G=일
+  const SLOT = { 1: [2, 3], 2: [4, 5, 6], 3: [7, 8] };
+  const SLOT_NAME = { 1: '2~3교시', 2: '4~6교시', 3: '7~8교시' };
+  const SHORT = { '생활과윤리': '생윤', '사회문화': '사문', '정치와법': '정법', '윤리와사상': '윤사', '한국지리': '한지', '세계지리': '세지', '동아시아사': '동사', '세계사': '세계사', '경제': '경제',
+                  '지구과학Ⅰ': '지1', '지구과학Ⅱ': '지2', '생명과학Ⅰ': '생1', '생명과학Ⅱ': '생2', '화학Ⅰ': '화1', '화학Ⅱ': '화2', '물리학Ⅰ': '물1', '물리학Ⅱ': '물2' };
+  const IMP = { rows: [], groups: {}, bad: [], file: '' };
+  function parseCode(code) {
+    const c = String(code || '').trim().toUpperCase();
+    let m = /^\d{3}([A-G])([123])/.exec(c);
+    if (m) return { days: [DAYS.indexOf(m[1]) + 1], slot: +m[2], guess: false, key: null };
+    m = /^\(([AP])\)(\d{3})([A-G]+)([123]*)/.exec(c);
+    if (m) {
+      const days = [...m[3]].map(x => DAYS.indexOf(x) + 1);
+      // 숫자가 요일 수만큼 있으면 요일마다 따로 (예: (P)326AF32 → 월 7~8교시, 토 4~6교시)
+      if (m[4].length === days.length && days.length > 1) return { days, slots: [...m[4]].map(Number), slot: +m[4][0], guess: false, key: null };
+      if (m[4]) return { days, slot: +m[4][0], guess: false, key: null };
+      const slot = m[1] === 'P' ? 3 : (+m[2] < 300 ? 1 : 2);
+      return { days, slot, guess: true, key: `(${m[1]})${m[2]}${m[3]}` };
+    }
+    return null;
+  }
+  function lectureTitle(subj, teacher) {
+    const t = String(teacher || '').replace(/\(.*?\)/g, '').trim();
+    return ('러셀' + (SHORT[subj] || subj || '') + t).slice(0, 40);
+  }
+  async function readImportFile(file) {
+    const buf = await file.arrayBuffer();
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (/charset=euc-kr|charset=ks_c_5601/i.test(text.slice(0, 2000)) || text.includes('\ufffd')) text = new TextDecoder('euc-kr').decode(buf);
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const trs = [...doc.querySelectorAll('tr')].map(tr => [...tr.querySelectorAll('td,th')].map(td => td.textContent.trim()));
+    const hi = trs.findIndex(r => r.includes('학번') && r.includes('수강기호'));
+    if (hi < 0) throw new Error('학번 · 수강기호 칸이 있는 단과 수강 파일이 아니에요.');
+    const H = trs[hi]; const col = (n) => H.indexOf(n);
+    const ci = { id: col('학번'), name: col('이름'), code: col('수강기호'), teacher: col('강사'), subj: col('과목') };
+    return trs.slice(hi + 1).filter(r => r.length >= H.length && r[ci.id]).map(r => ({ id: r[ci.id], name: r[ci.name], code: r[ci.code], teacher: r[ci.teacher], subj: r[ci.subj] }));
+  }
+  $('impFile').addEventListener('change', async (ev) => {
+    const f = ev.target.files[0]; if (!f) return;
+    $('impName').textContent = f.name;
+    try {
+      const lectures = await readImportFile(f);
+      IMP.file = f.name; IMP.lectures = lectures; IMP.groups = {}; IMP.bad = [];
+      lectures.forEach(l => { const p = parseCode(l.code); if (!p) { IMP.bad.push(l); return; } if (p.guess) { (IMP.groups[p.key] ||= { slot: p.slot, n: 0, days: p.days }).n++; } });
+      renderImport();
+    } catch (e) { $('impPreview').innerHTML = `<p class="msg-err">${esc(e.message || '파일을 읽지 못했어요.')}</p>`; }
+    ev.target.value = '';
+  });
+  function buildImportRows() {
+    const out = []; const seen = new Set();
+    (IMP.lectures || []).forEach(l => {
+      const p = parseCode(l.code); if (!p) return;
+      const slot = p.guess ? IMP.groups[p.key].slot : p.slot;
+      const title = lectureTitle(l.subj, l.teacher);
+      p.days.forEach((d, di) => SLOT[p.slots ? p.slots[di] : slot].forEach(per => { const k = `${l.id}|${d}|${per}|${title}`; if (!seen.has(k)) { seen.add(k); out.push({ student_id: String(l.id).trim(), weekday: d, period: per, title }); } }));
+    });
+    return out;
+  }
+  function renderImport() {
+    const L = IMP.lectures || []; const rows = buildImportRows();
+    const students = new Set(L.map(l => l.id)).size;
+    const wd = ['', '월', '화', '수', '목', '금', '토', '일'];
+    const g = Object.entries(IMP.groups).sort();
+    $('impPreview').innerHTML = `
+      <div class="kpis" style="margin-top:12px">
+        <div class="kpi"><div class="l">수업 줄</div><div class="v">${L.length}</div></div>
+        <div class="kpi"><div class="l">학생</div><div class="v">${students}명</div></div>
+        <div class="kpi"><div class="l">만들어질 스케줄 칸</div><div class="v">${rows.length}</div></div>
+        <div class="kpi"><div class="l">시간대 추정</div><div class="v" style="color:var(--late)">${g.reduce((a, [, x]) => a + x.n, 0)}</div></div>
+        <div class="kpi"><div class="l">읽지 못한 수강기호</div><div class="v" style="color:var(--late)">${IMP.bad.length}</div></div>
+      </div>
+      ${g.length ? `<div class="sh-sec" style="margin-top:14px"><div class="h">시간대가 수강기호에 없는 수업 · 맞는지 확인해 주세요</div>
+        <table class="stat" style="max-width:640px"><thead><tr><th>수강기호</th><th>요일</th><th>수업 수</th><th>교시</th></tr></thead><tbody>
+        ${g.map(([k, x]) => `<tr><td style="text-align:left">${esc(k)}</td><td>${x.days.map(d => wd[d]).join('/')}</td><td>${x.n}</td><td><select data-gk="${esc(k)}" style="height:36px;border:1px solid #D5D9E0;border-radius:8px">${[1, 2, 3].map(sv => `<option value="${sv}" ${sv === x.slot ? 'selected' : ''}>${SLOT_NAME[sv]}</option>`).join('')}</select></td></tr>`).join('')}
+        </tbody></table></div>` : ''}
+      ${IMP.bad.length ? `<p style="color:var(--late);font-size:13px">읽지 못한 수강기호: ${esc([...new Set(IMP.bad.map(b => b.code))].slice(0, 10).join(', '))}${IMP.bad.length > 10 ? ' …' : ''} (이 수업은 빠져요)</p>` : ''}
+      <div class="sh-sec" style="margin-top:14px"><div class="h">미리보기 (앞 8줄)</div>
+        <table class="stat" style="max-width:640px"><thead><tr><th>학번</th><th>요일</th><th>교시</th><th>스케줄 이름</th></tr></thead><tbody>
+        ${rows.slice(0, 8).map(r => `<tr><td style="text-align:left" class="num">${esc(r.student_id)}</td><td>${wd[r.weekday]}</td><td>${r.period}</td><td>${esc(r.title)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="toolbar" style="margin-top:14px">
+        <label class="ctl">적용 시작일 <input type="date" id="impFrom" value="${esc(S.today || '')}" style="height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px"></label>
+        <button type="button" class="btn-dark" id="impGo" ${rows.length ? '' : 'disabled'}>스케줄 반영하기</button>
+      </div>
+      <div id="impResult" style="margin-top:10px;font-size:14px"></div>`;
+  }
+  $('impPreview').addEventListener('change', (ev) => { const s = ev.target.closest('[data-gk]'); if (!s) return; IMP.groups[s.dataset.gk].slot = +s.value; renderImport(); });
+  $('impPreview').addEventListener('click', async (ev) => {
+    if (!ev.target.closest('#impGo')) return;
+    const rows = buildImportRows(); const from = $('impFrom').value || S.today;
+    if (!confirmImport(rows.length, from)) return;
+    $('impGo').disabled = true; $('impResult').textContent = '반영하는 중이에요…';
+    try {
+      const { data, error } = await db.rpc('work_import_lectures', { p_rows: rows, p_from: from });
+      if (error) throw error;
+      $('impResult').innerHTML = `<b>반영했어요.</b> 새 스케줄 ${data.added}칸 · 끝낸 예전 단과 스케줄 ${data.ended}칸 · 명단에 없는 학번 등으로 뺀 ${data.skipped}칸 (${esc(data.from)}부터 적용)`;
+      toast('단과 스케줄을 반영했어요.'); load();
+    } catch (e) { $('impResult').innerHTML = `<span class="msg-err">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '반영하지 못했어요.'))}</span>`; }
+    finally { const b = $('impGo'); if (b) b.disabled = false; }
+  });
+  function confirmImport(n, from) {
+    const box = $('impResult');
+    if (box.dataset.ok === from + n) { box.dataset.ok = ''; return true; }
+    box.dataset.ok = from + n;
+    box.innerHTML = `<span style="color:var(--late);font-weight:700">${esc(from)}부터 기존 단과 스케줄을 이 파일 내용(${n}칸)으로 바꿔요. 맞으면 한 번 더 눌러 주세요.</span>`;
+    return false;
+  }
+
   // ---------- 이벤트 ----------
   $('sheetArea').addEventListener('click', (ev) => {
     const o = ev.target.closest('[data-open]'); if (o) return openDetail(o.dataset.open);
@@ -695,8 +818,16 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
   $('prevDay').onclick = () => { S.day = addDays(S.day, -1); S.period = 0; load(); };
   $('nextDay').onclick = () => { S.day = addDays(S.day, 1); S.period = 0; load(); };
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); load(); };
-  $('tabAtt').onclick = () => { S.tab = 'att'; $('tabAtt').classList.add('on'); $('tabStat').classList.remove('on'); $('viewAtt').classList.remove('hidden'); $('viewStat').classList.add('hidden'); render(); };
-  $('tabStat').onclick = () => { S.tab = 'stat'; $('tabStat').classList.add('on'); $('tabAtt').classList.remove('on'); $('viewStat').classList.remove('hidden'); $('viewAtt').classList.add('hidden'); render(); };
+  function setTab(t) {
+    S.tab = t;
+    [['att', 'tabAtt', 'viewAtt'], ['stat', 'tabStat', 'viewStat'], ['imp', 'tabImp', 'viewImp']].forEach(([k, b, v]) => {
+      $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
+    });
+    render();
+  }
+  $('tabAtt').onclick = () => setTab('att');
+  $('tabStat').onclick = () => setTab('stat');
+  $('tabImp').onclick = () => setTab('imp');
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
