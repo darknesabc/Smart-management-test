@@ -252,6 +252,10 @@ table.week td.today{background:#F8FAFF}
 .sms-note{font-size:13px;color:var(--sub);margin:0 0 10px;line-height:1.5}
 .sms-note.warn{background:#FEF3C7;color:#78350F;border-radius:10px;padding:8px 12px}
 .sms-acts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.sms-tpl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:0 0 12px}
+.sms-tpl summary{cursor:pointer;font-weight:700;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sms-tpl summary small{font-weight:500;color:var(--mute);font-size:12px}
+.sms-tpl pre{white-space:pre-wrap;word-break:break-all;font-family:inherit;font-size:13px;line-height:1.55;background:var(--bg);border-radius:10px;padding:12px;margin:10px 0;max-height:320px;overflow:auto}
 .sms-sent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--okSoft);color:var(--ok);border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:14px;font-weight:600}
 .sms-sent button{border:0;background:#fff;border-radius:8px;min-height:34px;padding:0 10px;color:var(--sub);font-weight:700}
 .ph{font-variant-numeric:tabular-nums;font-weight:700;min-width:120px}
@@ -892,9 +896,11 @@ table.week td.today{background:#F8FAFF}
   async function loadSms() {
     const key = S.day + '|' + S.floor; if (S.smsKey !== key) S.sms = null; S.smsKey = key; S.smsAt = Date.now();
     try {
-      const { data, error } = await db.rpc('work_sms_data', { p_day: S.day, p_floor: S.floor });
+      const [res, tpl] = await Promise.all([db.rpc('work_sms_data', { p_day: S.day, p_floor: S.floor }), db.rpc('work_sms_template_get', { p_floor: S.floor })]);
+      const { data, error } = res;
       if (error) throw error;
       if (S.smsKey !== key) return;
+      S.smsTpl = tpl && !tpl.error ? tpl.data : null;
       S.sms = data; if (S.tab === 'abs' && S.absMode === 'sms') renderSms();
     } catch (e) { if (S.smsKey === key && !S.sms) $('smsBody').innerHTML = `<div class="empty-note" style="color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
   }
@@ -920,6 +926,11 @@ table.week td.today{background:#F8FAFF}
     return { R, P, open, targets, skipped, sent, ex };
   }
   const phoneOf = (r) => ((S.sms && S.sms.phones) || {})[r.id] || '';
+  // 문자 문구: {교시} → 1차 "1, 2교시" / 4교시 / 7교시
+  const SMS_DEFAULT = `[러셀대치 바른공부 자습전용관]\n\n※ 자습전용관 미등원 안내\n\n금일 {교시} 학부모님의 자녀가 미등원 하였습니다. (지각생 포함하여 발송됩니다)\n\n★ 미등원 설문에 사유 남겨주시면 교육점수가 제외됩니다.★ \n☞ https://forms.gle/1PY8eD6zmzUJNqWd6\n\n★ 자습전용관 출석여부 확인은 아래 카카오톡 채널을 이용해 주시기 바랍니다.★ \n☞ http://pf.kakao.com/_PWwwG\n\n★ 특별한 사유 없이 지각 또는 미등원한 경우에 교육점수 1점 부여됩니다. ★\n\n* 미등원 문자는 바른공부 자습전용관에 현재 출석한 학생을 제외한 모든 미등원 학생의 학부모님께 발송됩니다(지각자 포함).\n* 단, 스케줄 또는 특이사항이 있어 미등원한 학생은 담임선생님 확인 후 교육점수가 부여되지 않습니다.\n\n★ 기타 문의사항은 아래 {층}층 직통번호로 문의주시기 바랍니다.\n  (직통번호)\n\n감사합니다.`;
+  const roundText = (R) => R === 1 ? '1, 2교시' : `${R}교시`;
+  const tplBody = () => (S.smsTpl && S.smsTpl.body) || SMS_DEFAULT;
+  const smsText = (R) => tplBody().replace(/\{교시\}/g, roundText(R)).replace(/\{층\}/g, String(S.floor));
   function renderSms() {
     const tSel = $('smsT'); const tv = tSel.value; const teachers = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
     tSel.innerHTML = '<option value="">전체</option>' + teachers.map(x => `<option ${x === tv ? 'selected' : ''}>${esc(x)}</option>`).join('');
@@ -957,7 +968,10 @@ table.week td.today{background:#F8FAFF}
       </div>
       <p class="sms-note" style="margin-top:10px">${rule} 화면을 띄워 둔 사이 출석 · 설문 · 이동이 들어오면 명단에서 바로 빠져요.</p>${warn}
       ${mine.map(m => `<div class="sms-sent">✓ ${esc(m.at)} ${esc(m.by)} 선생님이 ${c.R}교시 문자 발송 완료로 표시했어요 (${(m.ids || []).length}명)<button type="button" data-unsent="${m.id}">표시 취소</button></div>`).join('')}
+      <details class="sms-tpl" ${S.tplOpen ? 'open' : ''}><summary>문자 문구 보기 · 수정 <small>${S.smsTpl ? `${esc(S.smsTpl.at)} ${esc(S.smsTpl.by)} 수정` : '<b style="color:var(--late)">이 층 문구가 아직 없어요. 수정에서 직통번호를 넣어 주세요</b>'}</small></summary>
+        <pre>${esc(smsText(c.R))}</pre><button type="button" class="btn-line" data-sa="tpledit">문구 수정</button></details>
       <div class="sms-acts">
+        <button type="button" class="btn-dark" data-sa="text">${c.R}교시 문구 복사</button>
         <button type="button" class="btn-line" data-sa="phones">연락처만 복사</button>
         <button type="button" class="btn-line" data-sa="list">명단 복사</button>
         <button type="button" class="btn-line" data-sa="csv">엑셀 저장</button>
@@ -971,6 +985,7 @@ table.week td.today{background:#F8FAFF}
   }
   $('smsRound').onclick = (e) => { const b = e.target.closest('[data-sr]'); if (!b) return; S.smsR = +b.dataset.sr; renderSms(); };
   $('smsT').onchange = renderSms; $('smsOut').onchange = renderSms;
+  $('smsBody').addEventListener('toggle', (e) => { if (e.target.classList?.contains('sms-tpl')) S.tplOpen = e.target.open; }, true);   // 다시 그려도 열림 상태 유지
   async function copyText(text, msg) {
     try { await navigator.clipboard.writeText(text); toast(msg); }
     catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast(msg); } catch (x) { toast('복사하지 못했어요.', { err: true }); } ta.remove(); }
@@ -1004,6 +1019,8 @@ table.week td.today{background:#F8FAFF}
     if (u) { if (!confirm('발송 완료 표시를 취소할까요?')) return; try { const { error } = await db.rpc('work_sms_unmark_sent', { p_id: +u.dataset.unsent }); if (error) throw error; } catch (err) { toast(err.message || '취소하지 못했어요.', { err: true }); } return loadSms(); }
     const a = e.target.closest('[data-sa]'); if (!a) return;
     const c = smsCompute(); const T = c.targets;
+    if (a.dataset.sa === 'text') return copyText(smsText(c.R), `${roundText(c.R)} 문자 문구를 복사했어요.`);
+    if (a.dataset.sa === 'tpledit') return openTplEdit();
     if (a.dataset.sa === 'phones') {
       const ph = T.map(x => phoneOf(x.r)).filter(Boolean);
       return copyText(ph.join('\n'), `연락처 ${ph.length}개를 복사했어요.${T.length > ph.length ? ` (연락처 없는 ${T.length - ph.length}명 제외)` : ''}`);
@@ -1024,6 +1041,28 @@ table.week td.today{background:#F8FAFF}
       loadSms();
     }
   });
+  function openTplEdit() {
+    const d = $('smsDlg');
+    d.innerHTML = `<div class="sheet-box" style="max-width:640px"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">${S.floor}층 · 모든 선생님이 같이 써요</div><div class="t2">미등원 문자 문구</div></div></div>
+      <p class="sms-note" style="margin:0"><b>{교시}</b> 자리에는 차수에 맞게 "1, 2교시" · "4교시" · "7교시"가 자동으로 들어가요.</p>
+      <textarea id="tplBody" style="min-height:360px;border:1px solid #D5D9E0;border-radius:12px;padding:12px;font-size:14px;line-height:1.5;resize:vertical" maxlength="2000">${esc(tplBody())}</textarea>
+      <div style="display:flex;gap:8px"><button type="button" class="btn-line" data-tplreset>기본 문구로</button>
+        <button type="button" class="btn-line" data-tplclose style="margin-left:auto">닫기</button><button type="button" class="btn-dark" data-tplsave>저장</button></div></div>`;
+    d.classList.remove('hidden');
+    const close = () => { d.classList.add('hidden'); d.innerHTML = ''; };
+    d.onclick = async (ev) => {
+      if (ev.target === d || ev.target.closest('[data-tplclose]')) return close();
+      if (ev.target.closest('[data-tplreset]')) { $('tplBody').value = SMS_DEFAULT.replace(/\{층\}/g, String(S.floor)); return; }
+      if (ev.target.closest('[data-tplsave]')) {
+        const body = $('tplBody').value;
+        if (!body.trim()) return toast('문구를 적어 주세요.', { err: true });
+        if (!body.includes('{교시}') && !confirm('문구에 {교시}가 없어요. 차수마다 같은 문구가 나가요. 그대로 저장할까요?')) return;
+        try { const { error } = await db.rpc('work_sms_template_set', { p_floor: S.floor, p_body: body }); if (error) throw error; close(); toast('문구를 저장했어요.'); loadSms(); }
+        catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
+      }
+    };
+  }
   function openSmsEx(id) {
     const r = S.rows.find(x => x.id === id); if (!r) return;
     const e = ((S.sms && S.sms.exclude) || []).find(x => x.student_id === id);
