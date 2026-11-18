@@ -246,6 +246,37 @@ table.week td.today{background:#F8FAFF}
 .rtag.out{background:#F1F2F4;color:var(--sub)}
 .rtag.sent{background:#F1F2F4;color:var(--sub)}
 .rtag.add{background:#FDECE3;color:#9A3412}
+table.rep{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px;background:#fff}
+table.rep th,table.rep td{border:1px solid var(--line);padding:8px 6px;text-align:center}
+table.rep thead th{background:#F3F4F6;font-size:12px;font-weight:700;line-height:1.25}
+table.rep tbody th{font-weight:700;white-space:nowrap}
+table.rep td.sub{font-weight:800}
+table.rep td.rp-z{color:#C3C8D0}
+table.rep td.rp-n{cursor:pointer;font-weight:700}
+table.rep td.rp-n:hover,table.rep td.rp-n:focus{background:var(--okSoft);outline:none}
+table.rep td.rp-n.c-late,table.rep td.rp-n.c-absent{color:var(--late)}
+table.rep tr.tot th,table.rep tr.tot td{background:#EEF2FF;font-weight:800}
+table.rep td.man{background:#FFF7ED;color:#9A3412}
+table.rep td i{font-style:normal;font-size:10px;margin-left:2px;vertical-align:super;color:#C2410C}
+table.rep tr.off th{color:var(--late)}
+table.rep tr.off th::after{content:' ⚠';font-size:11px}
+table.rep th.gap,table.rep td.gap{border:0;background:transparent;width:10px;padding:0}
+table.rep th.adj{background:#FEF3C7;color:#78350F}
+table.rep td.adj{background:#FFFBEB;padding:3px;width:54px;min-width:54px;color:#9A3412;font-weight:700}
+table.rep th.adj{width:54px}
+table.rep thead th{white-space:nowrap}
+table.rep td.adj input{width:100%;min-width:40px;height:32px;border:1px solid #FCD34D;border-radius:8px;text-align:center;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;background:#fff;color:#9A3412}
+table.rep td.adj input:focus{outline:2px solid #F59E0B;outline-offset:0}
+table.rep td.adj.has input{background:#FFEDD5}
+table.rep tr.tot td.adj{background:#FEF3C7}
+#repBox{overflow-x:auto}
+.rep-acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rep-acts .sep{width:1px;height:24px;background:var(--line)}
+.rep-status{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--sub);margin:0 0 10px;min-height:18px}
+.rep-status .ok{color:var(--ok);font-weight:600}
+.rep-status .warn{color:var(--late);font-weight:600}
+.rep-status .link{border:0;background:none;color:var(--sub);text-decoration:underline;font-size:13px;padding:0 0 0 4px;cursor:pointer}
+@media (max-width:899px){ .rep-acts{margin-left:0;width:100%} .rep-acts .sep{display:none} }
 .kio-q{height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 12px;font-size:14px;min-width:240px;background:#fff}
 @media (max-width:899px){ .kio-q{min-width:0;flex:1 1 100%} }
 .abs-mode{display:inline-flex;margin-bottom:12px;align-self:flex-start;width:max-content}
@@ -334,6 +365,7 @@ table.week td.today{background:#F8FAFF}
         <button type="button" id="tabAbs">미등원</button>
         <button type="button" id="tabStat">등원 현황</button>
         <button type="button" id="tabSch">스케줄 관리</button>
+        <button type="button" id="tabRep">인원보고</button>
         <button type="button" id="tabImp">단과 관리</button>
         <button type="button" id="tabKio">태블릿 기록</button>
       </nav>
@@ -445,6 +477,19 @@ table.week td.today{background:#F8FAFF}
       <span style="margin-left:auto;font-size:13px;color:var(--sub)">학생 태블릿에서 넣은 이동 · 교육점수예요. 잘못 넣은 기록은 지우면 관리자 페이지에서도 빠져요.</span>
     </div>
     <div class="tbox" id="kioBox"></div>
+  </main>
+
+  <main id="viewRep" class="hidden">
+    <div class="toolbar">
+      <div class="seg" id="repSeg" role="group" aria-label="보고 교시"></div>
+      <span id="repNote" style="font-size:13px;color:var(--sub)"></span>
+      <span class="rep-acts"><button type="button" class="btn-dark" id="repSaveDb">저장</button>
+        <span class="sep"></span><button type="button" class="btn-line" id="repCopy">이미지 복사</button><button type="button" class="btn-line hidden" id="repShare">공유</button><button type="button" class="btn-line" id="repSave">이미지 저장</button></span>
+    </div>
+    <div class="rep-status" id="repStatus"></div>
+    <div class="tbox" id="repBox"></div>
+    <p class="sms-note" style="margin-top:10px">숫자를 누르면 그 칸에 들어간 학생과 이유가 나와요. 자동 숫자가 틀리면 오른쪽 <b>[수동 입력]</b> 칸에 더하거나 뺄 숫자(예: <b>2</b>, <b>-1</b>)를 넣어요. 왼쪽 숫자에 바로 더해지고(✎ 표시), <b>개인일정</b>은 엑셀처럼 나머지로 자동 계산돼요. <b>저장</b>을 눌러야 다른 선생님에게도 보이고, 이미지에는 수동 입력 칸이 빠지고 결과 숫자만 나와요.<br>
+      분류: 결석 학생 중 <b>조퇴</b> 이동 → 조퇴 · <b>단과/러셀</b> → 원내수업 · <b>학교</b> → 학교 · <b>병원·치과·진료·개인</b> → 스케쥴 · 그 밖의 스케줄 · 외부 학원 이동 → 원외수업 · 내부 학원 · 튜터 → 원내수업 · 병원 · 가족 행사 이동 → 스케쥴 · 식사 · 상담 등 원내 이동 → 자습 · 설문 · 기타 이동 → 개인일정 · 사유 없음 → 결석. 이동은 복귀안함이어도 사유대로 나눠요.</p>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -583,6 +628,7 @@ table.week td.today{background:#F8FAFF}
       await loadExtras();
       if (S.tab === 'kio') loadKio();
       if (S.tab === 'abs' && S.absMode === 'sms') loadSms();
+      if (S.tab === 'rep') loadRep();
       setNet(false);
       render();
     } catch (e) {
@@ -650,8 +696,8 @@ table.week td.today{background:#F8FAFF}
       if (rp > 8) rp = 8;
       const back = m.return_period === '복귀안함' ? '복귀안함' : (rp && rp !== sp ? `${rp}교시 복귀` : '');
       const text = `이동 · ${reason}${m.new_seat ? ` → ${m.new_seat}` : ''}${back ? ` (${back})` : ''}`;
-      if (rp > 0) { for (let p = (sp > 0 ? sp : rp); p <= rp; p++) put(m.student_id, p, { type: 'move', text }); }
-      else put(m.student_id, sp > 0 ? sp : 1, { type: 'move', text });
+      if (rp > 0) { for (let p = (sp > 0 ? sp : rp); p <= rp; p++) put(m.student_id, p, { type: 'move', text, reason }); }
+      else put(m.student_id, sp > 0 ? sp : 1, { type: 'move', text, reason });
     });
     S.extras = ex;
   }
@@ -740,7 +786,7 @@ table.week td.today{background:#F8FAFF}
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -1100,6 +1146,272 @@ table.week td.today{background:#F8FAFF}
       if (ev.target.closest('[data-exsave]')) { const rs = [...d.querySelectorAll('.sms-rd input:checked')].map(i => +i.value); if (!rs.length) return toast('차수를 하나 이상 골라 주세요.', { err: true }); save(rs); }
     };
   }
+
+  // ---------- 인원보고 (2교시 · 7교시) ----------
+  //  한 학생은 한 칸에만 들어가요:  재원 = 출석 소계(자습·원내·원외·학교·스케쥴) + 무단(지각·결석) + 조퇴 + 개인일정
+  //  수기 입력: 칸 숫자를 직접 고칠 수 있어요 (자동 값은 옆에 작게). [저장]을 누르면 DB에 남아요.
+  const REP_COLS = [
+    ['self', '자습'], ['inner', '원내\n수업'], ['outer', '원외\n수업'], ['school', '학교'], ['sched', '스케쥴'],
+    ['late', '지각'], ['absent', '결석'], ['early', '조퇴'], ['personal', '개인\n일정']];
+  const REP_ATT = ['self', 'inner', 'outer', 'school', 'sched'];
+  const REP_ADJ = ['self', 'inner', 'outer', 'school', 'sched', 'late', 'absent', 'early'];   // 수동 입력 칸 (개인일정은 나머지)
+  S.repP = null; S.rep = { key: '', saved: null, ov: {}, dirty: false, edit: false };
+  function repSession(P) { return P === 1 ? [0, 1] : [P]; }       // 2교시 보고: 1~2교시 지각 / 7교시 보고: 7교시 지각
+  function repMoveCat(reason) {
+    if (reason.includes('조퇴')) return 'early';
+    if (reason.includes('외부')) return 'outer';
+    if (reason.includes('내부') || reason.includes('튜터')) return 'inner';
+    if (reason.includes('병원') || reason.includes('가족')) return 'sched';
+    if (['식사', '자료수령', '대기자습실 이동', '상담'].some(k => reason.includes(k))) return 'self';     // 원내에 있음
+    return 'personal';
+  }
+  function repSchedCat(x) {
+    const t = x.title || '';
+    if (x.source === 'lecture' || t.includes('러셀')) return 'inner';
+    if (t.includes('학교')) return 'school';
+    if (/병원|치과|진료|개인/.test(t)) return 'sched';
+    return 'outer';
+  }
+  function repClassify(r, P) {
+    const c = codeOf(r, P);
+    if (c !== '3') {
+      const late = repSession(P).find(i => codeOf(r, i) === '2');
+      return late !== undefined ? { cat: 'late', why: `${late + 1}교시 지각` } : { cat: 'self', why: '' };
+    }
+    const ex = ((S.extras || {})[r.id]?.[P]) || [];
+    const moves = ex.filter(x => x.type === 'move');
+    const early = moves.find(m => (m.reason || '').includes('조퇴'));
+    if (early) return { cat: 'early', why: early.text };
+    const sch = schedOf(r, P);
+    if (sch.length) { const order = ['inner', 'school', 'sched', 'outer']; const cats = sch.map(repSchedCat); return { cat: order.find(o => cats.includes(o)), why: sch.map(x => x.title).join(', ') }; }
+    if (moves.length) { const m = moves[0]; return { cat: repMoveCat(m.reason || ''), why: m.text }; }
+    const sv = ex.find(x => x.type === 'survey'); if (sv) return { cat: 'personal', why: sv.text };
+    const before = [...Array(P).keys()].some(i => codeOf(r, i) !== '3');
+    return { cat: 'absent', why: before ? '앞 교시엔 있었어요 (사유 없음)' : '사유 없음' };
+  }
+  function repCompute(P) {
+    const live = S.rows.filter(r => !r.empty);
+    const teachers = [...new Set(live.map(r => r.teacher || '(담임 없음)'))].sort((a, b) => a.localeCompare(b, 'ko'));
+    const blank = () => Object.fromEntries(REP_COLS.map(([k]) => [k, []]));
+    const rows = teachers.map(t => ({ t, n: 0, cats: blank() }));
+    live.forEach(r => {
+      const row = rows.find(x => x.t === (r.teacher || '(담임 없음)'));
+      const k = repClassify(r, P); row.n++; row.cats[k.cat].push({ r, why: k.why });
+    });
+    // 최종 값 = 자동 값 + 수동 입력(+/−).  개인일정은 엑셀처럼 나머지 = 재원 − 출석 소계 − 지각 − 결석 − 조퇴
+    const ov = S.rep.ov || {};
+    rows.forEach(row => {
+      row.auto = { n: row.n, ...Object.fromEntries(REP_COLS.map(([k]) => [k, row.cats[k].length])) };
+      row.v = { ...row.auto }; row.adj = {}; row.manual = {};
+      Object.entries(ov[row.t] || {}).forEach(([k, d]) => { d = Math.round(+d); if (REP_ADJ.includes(k) && Number.isFinite(d) && d) { row.adj[k] = d; row.v[k] = row.auto[k] + d; row.manual[k] = true; } });
+      row.v.sub = REP_ATT.reduce((a, k) => a + row.v[k], 0);
+      row.v.personal = row.v.n - (row.v.sub + row.v.late + row.v.absent + row.v.early);
+      if (row.v.personal !== row.auto.personal) row.manual.personal = true;
+      row.adjSum = Object.values(row.adj).reduce((a, d) => a + d, 0);
+      row.off = row.v.personal < 0;
+    });
+    const tot = { t: '합계', cats: blank(), v: {}, adj: {}, manual: {}, auto: {} };
+    ['n', 'sub', ...REP_COLS.map(c => c[0])].forEach(k => { tot.v[k] = rows.reduce((a, r) => a + (r.v[k] || 0), 0); });
+    REP_ADJ.forEach(k => { tot.adj[k] = rows.reduce((a, r) => a + (r.adj[k] || 0), 0); });
+    tot.adjSum = rows.reduce((a, r) => a + r.adjSum, 0);
+    REP_COLS.forEach(([k]) => { tot.cats[k] = rows.flatMap(r => r.cats[k]); });
+    tot.off = rows.some(r => r.off);
+    return { rows, tot };
+  }
+  async function loadRep(force) {
+    const P = S.repP; if (P === null) return;
+    const key = `${S.day}|${S.floor}|${P}`;
+    if (!force && S.rep.key === key && (S.rep.dirty || Date.now() - (S.rep.at || 0) < 60e3)) return;
+    if (S.rep.key !== key) S.rep = { key, saved: null, ov: {}, dirty: false, loading: true };
+    S.rep.at = Date.now();
+    try {
+      const { data, error } = await db.rpc('work_report_get', { p_day: S.day, p_floor: S.floor, p_period: P + 1 });
+      if (error) throw error;
+      if (S.rep.key !== key || S.rep.dirty) return;
+      S.rep.saved = data; S.rep.ov = JSON.parse(JSON.stringify((data && data.overrides) || {})); S.rep.loading = false;
+      if (S.tab === 'rep') renderRep();
+    } catch (e) { if (S.rep.key === key) { S.rep.loading = false; S.rep.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '저장본을 불러오지 못했어요.'); if (S.tab === 'rep') renderRep(); } }
+  }
+  function renderRep() {
+    if (S.repP === null) S.repP = isToday() && currentPeriodIdx() >= 4 ? 6 : 1;
+    loadRep();
+    const R = S.rep;
+    $('repSeg').innerHTML = [1, 6].map(p => `<button type="button" data-rp="${p}" class="${S.repP === p ? 'on' : ''}" aria-pressed="${S.repP === p}">${p + 1}교시 보고</button>`).join('');
+    $('repSaveDb').textContent = R.dirty ? '저장 *' : '저장';
+    const P = S.repP;
+    if (P > lastOpenIdx()) { $('repBox').innerHTML = `<div class="empty-note">${P + 1}교시는 아직 시작 전이에요.</div>`; $('repNote').textContent = ''; $('repStatus').innerHTML = ''; return; }
+    if (document.activeElement && document.activeElement.matches && document.activeElement.matches('#repBox input')) return;   // 입력 중에는 다시 그리지 않음
+    const { rows, tot } = repCompute(P);
+    const now = new Date(serverNow() + 9 * 3600e3);
+    S.repStamp = isToday() ? `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} 기준` : '하루 마감 기준';
+    $('repNote').textContent = `${S.floor}층 · ${dayLabel(S.day)} · ${P + 1}교시 · ${S.repStamp}`;
+    const nMan = rows.reduce((a, r) => a + Object.keys(r.adj).length, 0);
+    $('repStatus').innerHTML = [
+      R.loading ? '<span>저장본 확인 중…</span>' : R.saved?.at ? `<span class="ok">✓ ${esc(R.saved.at)} ${esc(R.saved.by || '')} 저장</span>` : '<span>아직 저장 안 함</span>',
+      R.dirty ? '<span class="warn">저장하지 않은 수정이 있어요</span>' : '',
+      nMan ? `<span>수동 입력 ${nMan}칸 <button type="button" class="link" data-repclear>모두 지우기</button></span>` : '',
+      tot.off ? '<span class="warn">개인일정이 0보다 작은 줄이 있어요 (⚠). 수동 입력을 확인해 주세요</span>' : '',
+      R.err ? `<span class="warn">${esc(R.err)}</span>` : ''].filter(Boolean).join('');
+    const sign = (d) => d ? (d > 0 ? '+' : '') + d : '';
+    const cell = (row, k, i) => {
+      const v = row.v[k], man = row.manual[k], a = row.auto[k];
+      const n = row.cats[k] ? row.cats[k].length : 0;
+      return `<td class="${v ? 'rp-n' : 'rp-z'} c-${k} ${man ? 'man' : ''}" ${n ? `data-rr="${i}" data-rk2="${k}" tabindex="0" role="button"` : ''} title="${man ? `자동 ${a ?? 0} → 수동 입력 반영 ${v}` : ''}">${v}${man ? '<i>✎</i>' : ''}</td>`;
+    };
+    const adjCell = (row, k, i) => i === 'tot'
+      ? `<td class="adj">${sign(row.adj[k])}</td>`
+      : `<td class="adj ${row.adj[k] ? 'has' : ''}"><input type="text" inputmode="numeric" value="${sign(row.adj[k])}" data-ri="${esc(row.t)}" data-rk="${k}" aria-label="${esc(row.t)} ${esc(REP_COLS.find(c => c[0] === k)[1].replace('\n', ''))} 수동 입력"></td>`;
+    const tr = (row, i, cls) => `<tr class="${cls || ''} ${row.off ? 'off' : ''}"><th scope="row">${esc(row.t)}</th>${cell(row, 'n', i)}<td class="sub">${row.v.sub}</td>${REP_COLS.map(([k]) => cell(row, k, i)).join('')}<td class="gap"></td>${REP_ADJ.map(k => adjCell(row, k, i)).join('')}<td class="adj sum">${sign(row.adjSum)}</td></tr>`;
+    const adjHead = REP_ADJ.map(k => `<th class="adj">${REP_COLS.find(c => c[0] === k)[1].replace('\n', '<br>')}</th>`).join('');
+    $('repBox').innerHTML = `<table class="rep">
+      <thead><tr><th rowspan="2">담임</th><th rowspan="2">재원생</th><th colspan="6">출석 인원</th><th colspan="2">무단 인원</th><th rowspan="2">조퇴</th><th rowspan="2">개인<br>일정</th>
+          <th rowspan="2" class="gap"></th><th colspan="${REP_ADJ.length + 1}" class="adj">[수동 입력] 수식 · 연동 오류 시 입력 (+/−)</th></tr>
+        <tr><th>소계</th>${REP_COLS.slice(0, 7).map(([, l]) => `<th>${l.replace('\n', '<br>')}</th>`).join('')}${adjHead}<th class="adj">합계</th></tr></thead>
+      <tbody>${rows.map((r, i) => tr(r, i)).join('')}${tr(tot, 'tot', 'tot')}</tbody></table>`;
+    S.repData = { rows, tot, P };
+  }
+  function repList(i, k) {
+    const D = S.repData; if (!D) return;
+    const row = i === 'tot' ? D.tot : D.rows[+i]; const label = k === 'n' ? '재원생' : REP_COLS.find(c => c[0] === k)[1].replace('\n', '');
+    const list = (row.cats[k] || []).slice().sort((a, b) => cmpSeat(a.r.seat, b.r.seat));
+    const d = $('smsDlg');
+    d.innerHTML = `<div class="sheet-box"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">${S.floor}층 · ${D.P + 1}교시 · ${esc(row.t)}</div><div class="t2">${esc(label)} ${list.length}명${row.manual[k] ? ` <small style="font-size:13px;color:var(--late)">(보고 숫자는 수기 입력 ${row.v[k]})</small>` : ''}</div></div></div>
+      <div style="max-height:60vh;overflow:auto">${list.map(x => `<div class="arow2"><span class="num" style="width:64px;font-weight:700">${esc(x.r.seat)}</span>
+        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(x.r.id)}">${esc(x.r.name)}</button></b><div class="meta2">${esc(x.r.teacher)}${x.why ? ' · ' + esc(x.why) : ''}</div></div></div>`).join('')}</div>
+      <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div></div>`;
+    d.classList.remove('hidden');
+    d.onclick = (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) { d.classList.add('hidden'); d.innerHTML = ''; return; }
+      const o = ev.target.closest('[data-open]'); if (o) { d.classList.add('hidden'); d.innerHTML = ''; openDetail(o.dataset.open, D.P); }
+    };
+  }
+  $('repSeg').onclick = (e) => {
+    const b = e.target.closest('[data-rp]'); if (!b || S.repP === +b.dataset.rp) return;
+    if (S.rep.dirty && !confirm('저장하지 않은 수동 입력이 있어요. 저장하지 않고 넘어갈까요?')) return;
+    S.repP = +b.dataset.rp; S.rep.dirty = false; renderRep();
+  };
+  $('repBox').addEventListener('click', (e) => { const c = e.target.closest('[data-rk2]'); if (c) repList(c.dataset.rr, c.dataset.rk2); });
+  $('repBox').addEventListener('keydown', (e) => {
+    if (e.target.matches('input')) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } return; }
+    if (e.key !== 'Enter' && e.key !== ' ') return; const c = e.target.closest('[data-rk2]'); if (c) { e.preventDefault(); repList(c.dataset.rr, c.dataset.rk2); }
+  });
+  $('repBox').addEventListener('change', (e) => {
+    const inp = e.target.closest('input[data-ri]'); if (!inp) return;
+    const t = inp.dataset.ri, k = inp.dataset.rk;
+    const raw = inp.value.replace(/\s/g, ''); const d = raw === '' || raw === '+' || raw === '-' ? 0 : Math.round(+raw);
+    if (!Number.isFinite(d) || Math.abs(d) > 999) { toast('숫자만 넣어 주세요. 예: 2, -1', { err: true }); inp.value = ''; return; }
+    const ov = S.rep.ov; ov[t] ||= {};
+    if (d) ov[t][k] = d; else delete ov[t][k];
+    if (!Object.keys(ov[t]).length) delete ov[t];
+    S.rep.dirty = true;
+    renderRepSoft();
+  });
+  // 입력 칸에서 나오면 표 전체를 다시 그림
+  $('repBox').addEventListener('focusout', () => setTimeout(() => { if (!(document.activeElement && document.activeElement.matches && document.activeElement.matches('#repBox input'))) renderRep(); }, 0));
+  // 입력 칸에 있는 동안: 왼쪽 숫자만 바꿔 줌 (입력 칸은 그대로 두어 커서가 튀지 않게)
+  function renderRepSoft() {
+    const { rows, tot } = repCompute(S.repP); S.repData = { rows, tot, P: S.repP };
+    const trs = $('repBox').querySelectorAll('tbody tr');
+    [...rows, tot].forEach((row, ri) => {
+      const tds = trs[ri] ? [...trs[ri].querySelectorAll('td')] : []; if (!tds.length) return;
+      const vals = [row.v.n, row.v.sub, ...REP_COLS.map(([k]) => row.v[k])];
+      vals.forEach((v, i) => { const td = tds[i]; if (!td) return; td.textContent = v; const k = i >= 2 ? REP_COLS[i - 2][0] : (i === 0 ? 'n' : ''); if (k && row.manual[k]) { td.classList.add('man'); td.insertAdjacentHTML('beforeend', '<i>✎</i>'); } else td.classList.remove('man'); });
+      trs[ri].classList.toggle('off', !!row.off);
+      tds[tds.length - 1].textContent = row.adjSum ? (row.adjSum > 0 ? '+' : '') + row.adjSum : '';
+    });
+    $('repSaveDb').textContent = '저장 *';
+  }
+  $('repStatus').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-repclear]')) return;
+    if (!confirm('수동 입력을 모두 지울까요? (저장을 눌러야 반영돼요)')) return;
+    S.rep.ov = {}; S.rep.dirty = true; renderRep();
+  });
+  $('repSaveDb').onclick = async () => {
+    const D = S.repData; if (!D) return;
+    if (document.activeElement && document.activeElement.matches && document.activeElement.matches('#repBox input')) { document.activeElement.blur(); }
+    const D2 = S.repData;
+    const snap = { stamp: S.repStamp, period: D2.P + 1, rows: [...D2.rows, D2.tot].map(r => ({ t: r.t, ...r.v, adj: r.adj })) };
+    $('repSaveDb').disabled = true;
+    try {
+      const { data, error } = await db.rpc('work_report_save', { p_day: S.day, p_floor: S.floor, p_period: D2.P + 1, p_overrides: S.rep.ov, p_snapshot: snap });
+      if (error) throw error;
+      S.rep.saved = { ...(S.rep.saved || {}), overrides: JSON.parse(JSON.stringify(S.rep.ov)), by: data.by, at: data.at }; S.rep.dirty = false; S.rep.at = Date.now();
+      toast(`${D2.P + 1}교시 인원보고를 저장했어요.`);
+    } catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
+    $('repSaveDb').disabled = false; renderRep();
+  };
+  window.addEventListener('beforeunload', (e) => { if (S.rep.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  // 밴드에 올릴 이미지 (표를 직접 그림 · 글씨가 또렷하게 2배 크기)
+  function repCanvas() {
+    const D = S.repData; if (!D) return null;
+    const cols = [['담임', 92], ['재원생', 64], ['소계', 60], ...REP_COLS.map(([, l]) => [l, 58])];
+    const W = cols.reduce((a, c) => a + c[1], 0) + 40, rowH = 34, headH = 30;
+    const H = 72 + headH * 2 + rowH * (D.rows.length + 1) + 30;
+    const s = 2, cv = document.createElement('canvas'); cv.width = W * s; cv.height = H * s;
+    const g = cv.getContext('2d'); g.scale(s, s);
+    const F = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#15181D'; g.font = `800 20px ${F}`; g.textBaseline = 'middle';
+    g.fillText(`${S.floor}층 인원보고 · ${dayLabel(S.day)} ${D.P + 1}교시`, 20, 30);
+    g.fillStyle = '#6B7280'; g.font = `500 13px ${F}`; g.fillText(S.repStamp || '', 20, 54);
+    let y = 72; const x0 = 20;
+    const xs = []; cols.reduce((x, c) => { xs.push(x); return x + c[1]; }, x0);
+    const box = (x, yy, w, h, fill) => { if (fill) { g.fillStyle = fill; g.fillRect(x, yy, w, h); } g.strokeStyle = '#D5D9E0'; g.lineWidth = 1; g.strokeRect(x + .5, yy + .5, w, h); };
+    const text = (t, x, yy, w, h, opt = {}) => {
+      g.fillStyle = opt.color || '#15181D'; g.font = `${opt.w || 600} ${opt.size || 13}px ${F}`; g.textAlign = 'center';
+      const lines = String(t).split('\n'); lines.forEach((ln, li) => g.fillText(ln, x + w / 2, yy + h / 2 + (li - (lines.length - 1) / 2) * 14));
+      g.textAlign = 'left';
+    };
+    const HB = '#F3F4F6';
+    [[0, '담임'], [1, '재원생']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
+    const span = (a, b, t) => { const w = xs[b] + cols[b][1] - xs[a]; box(xs[a], y, w, headH, HB); text(t, xs[a], y, w, headH, { w: 700 }); };
+    span(2, 7, '출석 인원'); span(8, 9, '무단 인원');
+    [[10, '조퇴'], [11, '개인\n일정']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
+    for (let i = 2; i <= 9; i++) { box(xs[i], y + headH, cols[i][1], headH, HB); text(cols[i][0], xs[i], y + headH, cols[i][1], headH, { w: 700, size: 12 }); }
+    y += headH * 2;
+    const red = { late: 1, absent: 1 };
+    [...D.rows, D.tot].forEach((row, ri) => {
+      const isTot = ri === D.rows.length; const fill = isTot ? '#EEF2FF' : null;
+      const vals = [row.t, row.v.n, row.v.sub, ...REP_COLS.map(([k]) => row.v[k])];
+      vals.forEach((v, i) => {
+        box(xs[i], y, cols[i][1], rowH, fill);
+        const k = i >= 3 ? REP_COLS[i - 3][0] : '';
+        text(v, xs[i], y, cols[i][1], rowH, { w: isTot || i === 0 ? 800 : 600, color: red[k] && v ? '#B42318' : (i >= 3 && !v ? '#B6BCC6' : '#15181D') });
+      });
+      y += rowH;
+    });
+    g.fillStyle = '#9AA1AD'; g.font = `500 11px ${F}`; g.fillText('자습 = 그 교시 출석 · 지각은 출석 소계에서 빼고 지각 칸에 따로 셈', 20, y + 16);
+    return cv;
+  }
+  const repName = () => `인원보고_${S.floor}층_${S.day}_${S.repData.P + 1}교시.png`;
+  const repBlob = (cv) => new Promise(res => cv.toBlob(res, 'image/png'));
+  $('repSave').onclick = async () => {
+    const cv = repCanvas(); if (!cv) return;
+    const blob = await repBlob(cv);
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = repName();
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
+  };
+  $('repCopy').onclick = async () => {
+    const cv = repCanvas(); if (!cv) return;
+    const blobP = repBlob(cv);
+    try {
+      if (!window.ClipboardItem || !navigator.clipboard?.write) throw new Error('no');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobP })]);     // 사파리도 되도록 Promise 그대로 넘김
+      toast('이미지를 복사했어요. 밴드 글쓰기에서 붙여넣기 하세요.');
+    } catch (e) {
+      const blob = await blobP; const file = new File([blob], repName(), { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: repName() }); } catch (x) {} return; }
+      toast('이 브라우저는 이미지 복사가 안 돼요. "이미지 저장"을 써 주세요.', { err: true });
+    }
+  };
+  $('repShare').onclick = async () => {
+    const cv = repCanvas(); if (!cv) return;
+    const file = new File([await repBlob(cv)], repName(), { type: 'image/png' });
+    try { await navigator.share({ files: [file], title: repName() }); } catch (e) { if (e && e.name !== 'AbortError') toast('공유하지 못했어요. "이미지 저장"을 써 주세요.', { err: true }); }
+  };
+  try { const test = new File([new Blob(['x'], { type: 'image/png' })], 'a.png', { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [test] })) $('repShare').classList.remove('hidden'); } catch (e) {}
 
   $('absPills').onclick = (ev) => { const b = ev.target.closest('[data-ap]'); if (!b) return; S.absP = +b.dataset.ap; renderAbs(); };
   $('absT').onchange = renderAbs; $('absAllDay').onchange = renderAbs;
@@ -1735,7 +2047,7 @@ table.week td.today{background:#F8FAFF}
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     render();
@@ -1744,6 +2056,7 @@ table.week td.today{background:#F8FAFF}
   $('tabStat').onclick = () => setTab('stat');
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
   $('tabSch').onclick = () => setTab('sch');
+  $('tabRep').onclick = () => setTab('rep');
   $('tabAbs').onclick = () => { setTab('abs'); if (S.absMode === 'sms') loadSms(); };
   $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
 
