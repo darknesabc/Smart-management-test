@@ -170,7 +170,7 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
 /* 스케줄 관리 */
 .sch-wrap{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;align-items:start}
 .pick{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 120px);position:sticky;top:76px}
-.pick input,.pick select{height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px;background:#fff;width:100%}
+.pick input,.pick select{flex-shrink:0;height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px;background:#fff;width:100%}
 .pick-list{overflow:auto;display:flex;flex-direction:column;gap:2px;min-height:120px}
 .pick-list button{display:flex;justify-content:space-between;gap:8px;text-align:left;border:0;background:transparent;border-radius:9px;padding:9px 10px;min-height:42px}
 .pick-list button:hover{background:#F4F5F7}
@@ -197,6 +197,7 @@ table.week td.today{background:#F8FAFF}
 .chip.teacher{background:#DBEAFE;color:#1E3A8A}
 .chip.once{background:#FFEDD5;color:#9A3412}
 .chip small{display:block;font-weight:500;font-size:10px;opacity:.85}
+.chip.ended{background:#F1F2F4!important;color:#6B7280!important;border:1px dashed #C4C9D2!important}
 .legend2{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:8px}
 .legend2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .addbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;background:#F8F9FA;border:1px solid var(--line);border-radius:12px;padding:10px}
@@ -789,7 +790,7 @@ table.week td.today{background:#F8FAFF}
   }
   function weekItems(dayIdx, per) {
     const d = addDays(SCH.week, dayIdx); const out = [];
-    (SCH.data.regular || []).forEach(x => { if (x.weekday === dayIdx + 1 && x.period === per && x.valid_from <= d && (!x.valid_to || x.valid_to >= d)) out.push({ ...x, kind: 'regular' }); });
+    (SCH.data.regular || []).forEach(x => { if (x.weekday === dayIdx + 1 && x.period === per && x.valid_from <= d && (!x.valid_to || x.valid_to >= d)) out.push({ ...x, kind: 'regular', ended: !!(x.valid_to && x.valid_to < SCH.data.today) }); });
     (SCH.data.once || []).forEach(x => { if (x.day === d && x.period === per) out.push({ ...x, kind: 'once', source: 'once' }); });
     return out;
   }
@@ -811,10 +812,10 @@ table.week td.today{background:#F8FAFF}
         const items = weekItems(di, pi + 1);
         const selOn = SCH.sel.has(`${di}|${pi + 1}`);
         return `<td class="${x.d === today ? 'today' : ''}"><div class="slot ${selOn ? 'sel' : ''}" role="group" aria-label="${x.w}요일 ${p[0]}교시">${items.map(it =>
-          `<button type="button" class="chip ${it.source}" data-kind="${it.kind}" data-id="${it.id}" aria-label="${x.w}요일 ${p[0]}교시 ${esc(it.title)} ${label[it.source]}">${esc(it.title)}<small>${label[it.source]}</small></button>`).join('')}
+          `<button type="button" class="chip ${it.source} ${it.ended ? 'ended' : ''}" data-kind="${it.kind}" data-id="${it.id}" aria-label="${x.w}요일 ${p[0]}교시 ${esc(it.title)} ${label[it.source]}${it.ended ? ' 끝남' : ''}">${esc(it.title)}<small>${it.ended ? `${shortDate(it.valid_to)}까지 · 끝남` : label[it.source]}</small></button>`).join('')}
           <button type="button" class="chip addbtn" style="background:transparent;color:var(--mute);font-weight:500;margin-top:auto" data-add="${di}|${pi + 1}" aria-pressed="${selOn}" aria-label="${x.w}요일 ${p[0]}교시 ${selOn ? '선택 해제' : '고르기'}">${selOn ? '✓ 선택됨' : '+ 고르기'}</button></div></td>`;
       }).join('')}</tr>`).join('')}</tbody></table></div>
-      <div class="legend2"><span><i style="background:var(--schSoft)"></i>단과 (엑셀로 들어옴)</span><span><i style="background:#DBEAFE"></i>매주 반복 (담임 입력)</span><span><i style="background:#FFEDD5"></i>이번만 (그 날짜만)</span></div>
+      <div class="legend2"><span><i style="background:var(--schSoft)"></i>단과 (엑셀로 들어옴)</span><span><i style="background:#DBEAFE"></i>매주 반복 (담임 입력)</span><span><i style="background:#FFEDD5"></i>이번만 (그 날짜만)</span><span><i style="background:#F1F2F4;border:1px dashed #C4C9D2"></i>회색 = 빼서 끝난 스케줄 (지난 날짜에만 남아요)</span></div>
       <div id="adder"></div>
       <div id="droppedBox"></div>`;
     renderAdder(); renderDropped();
@@ -854,20 +855,25 @@ table.week td.today{background:#F8FAFF}
           <select id="aRep" aria-label="종류"><option value="weekly" ${SCH.rep === 'weekly' ? 'selected' : ''}>매주 반복</option><option value="once" ${SCH.rep === 'once' ? 'selected' : ''}>이 날짜만</option><option value="lecture" ${SCH.rep === 'lecture' ? 'selected' : ''}>단과 수업</option></select>
           <button type="button" class="btn-dark" data-doadd ${sl.length ? '' : 'disabled'}>추가</button></div>`;
     } else {
-      const q = (SCH.catQ || '').trim();
-      const cat = (SCH.cat || []).filter(c => !q || c.title.includes(q)).slice(0, 60);
       body = `<div class="arow"><input type="search" id="catQ" placeholder="수업 이름 · 강사 검색 (예: 이수민, 러셀국어)" value="${esc(SCH.catQ || '')}" aria-label="단과 수업 검색"></div>
-        <div class="cat">${SCH.cat === null ? '<span class="selinfo">불러오는 중…</span>' : cat.length ? cat.map((c, k) => `<div class="it"><div><div class="ti">${esc(c.title)}</div><div class="pt">${esc(slotsText(c.slots))} · ${c.n}명 수강</div></div><button type="button" class="btn-dark" data-catadd="${(SCH.cat || []).indexOf(c)}">넣기</button></div>`).join('') : '<span class="selinfo">찾는 수업이 없어요. "직접 입력"에서 칸을 고르고 종류를 "단과 수업"으로 넣을 수 있어요.</span>'}</div>`;
+        <div class="cat" id="catList">${catListHtml()}</div>`;
     }
     box.innerHTML = `<div class="adder"><div class="tabs2" role="group" aria-label="추가 방법">
       <button type="button" data-atab="direct" class="${tab === 'direct' ? 'on' : ''}">직접 입력</button>
       <button type="button" data-atab="lecture" class="${tab === 'lecture' ? 'on' : ''}">단과 수업 고르기</button></div>${body}</div>`;
   }
+  function catListHtml() {
+    if (SCH.cat === null) return '<span class="selinfo">불러오는 중…</span>';
+    const q = (SCH.catQ || '').trim().replace(/\s+/g, '');
+    const cat = (SCH.cat || []).filter(c => !q || c.title.replace(/\s+/g, '').includes(q)).slice(0, 60);
+    return cat.length ? cat.map(c => `<div class="it"><div><div class="ti">${esc(c.title)}</div><div class="pt">${esc(slotsText(c.slots))} · ${c.n}명 수강</div></div><button type="button" class="btn-dark" data-catadd="${(SCH.cat || []).indexOf(c)}">넣기</button></div>`).join('')
+      : '<span class="selinfo">찾는 수업이 없어요. "직접 입력"에서 칸을 고르고 종류를 "단과 수업"으로 넣을 수 있어요.</span>';
+  }
   async function loadCatalog() {
     SCH.cat = null; renderAdder();
     try { const { data, error } = await db.rpc('work_lecture_catalog'); if (error) throw error; SCH.cat = data || []; }
     catch (e) { SCH.cat = []; toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '수업 목록을 불러오지 못했어요.'), { err: true }); }
-    renderAdder();
+    const L = $('catList'); if (L) L.innerHTML = catListHtml(); else renderAdder();
   }
   async function renderDropped() {
     const box = $('droppedBox'); if (!box || !SCH.id) return;
@@ -880,7 +886,7 @@ table.week td.today{background:#F8FAFF}
   async function afterSchChange(msg) { toast(msg); SCH.sel.clear(); await loadWeek(); if (SCH.addTab === 'lecture') loadCatalog(); S.data && load(); }
   $('schMain').addEventListener('input', (ev) => {
     if (ev.target.id === 'aTitle') SCH.title = ev.target.value;
-    if (ev.target.id === 'catQ') { SCH.catQ = ev.target.value; const pos = ev.target.selectionStart; renderAdder(); const n = $('catQ'); n.focus(); n.setSelectionRange(pos, pos); }
+    if (ev.target.id === 'catQ') { SCH.catQ = ev.target.value; const L = $('catList'); if (L) L.innerHTML = catListHtml(); }
   });
   $('schMain').addEventListener('change', (ev) => { if (ev.target.id === 'aRep') SCH.rep = ev.target.value; });
   $('schMain').addEventListener('click', async (ev) => {
@@ -940,6 +946,17 @@ table.week td.today{background:#F8FAFF}
     const it = kind === 'once' ? SCH.data.once.find(x => x.id === id) : SCH.data.regular.find(x => x.id === id);
     if (!it) return;
     const src = kind === 'once' ? 'once' : it.source;
+    if (kind === 'regular' && it.valid_to && it.valid_to < SCH.data.today) {
+      const pop0 = document.createElement('div'); pop0.className = 'pop'; pop0.setAttribute('role', 'dialog');
+      pop0.innerHTML = `<div class="t">${esc(it.title)}</div><div class="m">${esc(it.valid_to)}까지 있었던 스케줄이에요. 지금은 빠져 있어서 앞으로의 날짜에는 나오지 않아요.</div><div class="row"><button type="button" class="btn-line" data-pclose>닫기</button></div>`;
+      document.body.appendChild(pop0);
+      const rc0 = chip.getBoundingClientRect();
+      pop0.style.left = Math.min(window.innerWidth - 272, Math.max(8, rc0.left)) + 'px';
+      pop0.style.top = (rc0.bottom + 6 + pop0.offsetHeight > window.innerHeight ? Math.max(8, rc0.top - pop0.offsetHeight - 6) : rc0.bottom + 6) + 'px';
+      pop0.addEventListener('click', (e) => { if (e.target.closest('[data-pclose]')) closePop(); });
+      pop0.querySelector('[data-pclose]').focus();
+      return;
+    }
     const desc = src === 'lecture' ? `단과 엑셀로 들어온 수업이에요. ${it.valid_from}부터` : src === 'teacher' ? `매주 반복 · ${it.valid_from}부터${it.by ? ' · ' + it.by : ''}` : `${it.day} 하루만${it.by ? ' · ' + it.by : ''}`;
     const pop = document.createElement('div'); pop.className = 'pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', it.title);
     pop.innerHTML = `<div class="t">${esc(it.title)}</div><div class="m">${esc(desc)}</div>
