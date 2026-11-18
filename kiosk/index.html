@@ -61,13 +61,16 @@ main{max-width:1280px;margin:0 auto;padding:16px 18px 40px;display:grid;grid-tem
 .seat-box .q{color:var(--sub);font-size:15px}
 .seat-box.ok{background:var(--goodSoft)} .seat-box.bad{background:var(--badSoft);color:var(--bad)}
 
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{min-height:50px;padding:8px 14px;border:1px solid #D5D9E0;background:#fff;border-radius:12px;font-size:16px;font-weight:600;text-align:left;display:inline-flex;align-items:center;gap:8px}
-.chip .pt{font-size:13px;font-weight:700;color:var(--bad);background:var(--badSoft);border-radius:6px;padding:2px 6px}
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--bg);border-radius:14px;padding:4px;margin-bottom:14px}
+.cats button{height:52px;border:0;border-radius:10px;background:transparent;font-size:17px;font-weight:700;color:var(--sub)}
+.cats button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.cats button.on.c-cs{color:var(--sch)} .cats button.on.c-edu{color:var(--bad)}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.chip{min-height:58px;padding:8px 14px;border:1px solid #D5D9E0;background:#fff;border-radius:12px;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;line-height:1.25;word-break:keep-all}
+.chip .pt{white-space:nowrap;flex-shrink:0;font-size:13px;font-weight:700;color:var(--bad);background:var(--badSoft);border-radius:6px;padding:2px 6px}
 .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .chip.on .pt{background:rgba(255,255,255,.18);color:#fff}
 .chip.cs{border-color:#C9BEF5;color:var(--sch)} .chip.cs.on{background:var(--sch);border-color:var(--sch);color:#fff}
-.grp-edu .sub-l{color:var(--bad)}
 textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;border-radius:10px;padding:10px 12px;font-size:16px;resize:vertical}
 
 .cs-days{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
@@ -151,12 +154,9 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
 
       <section class="card" aria-labelledby="s2">
         <div class="step"><span class="n">2</span><h2 id="s2">사유</h2></div>
-        <div class="sub-l">일반 이동</div>
-        <div class="chips" id="moveChips"></div>
+        <div class="cats" id="catRow" role="tablist" aria-label="사유 종류"></div>
+        <div class="chips" id="rChips"></div>
         <textarea id="other" class="hidden" maxlength="40" placeholder="기타 사유를 적어 주세요 (40자까지)"></textarea>
-        <div class="sub-l" style="color:var(--sch)">담임 상담</div>
-        <div class="chips" id="csChips"></div>
-        <div class="grp-edu"><div class="sub-l">규정 위반 · 교육점수</div><div class="chips" id="eduChips"></div></div>
       </section>
 
       <section class="card" aria-labelledby="s3" id="retCard">
@@ -211,7 +211,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
   function curPeriod() { const hm = kstHM(); let p = 0; PT.forEach((x, i) => { if (hm >= x[1]) p = i + 1; }); return p; } // 0 = 1교시 전
 
   const S = { role: '', floor: null, seats: [], hall: null, let: null, num: null, who: undefined, whoSeq: 0,
-              reason: null, ret: null, cs: null, list: [], queue: [], busy: false };
+              cat: 'move', reason: null, ret: null, cs: null, list: [], queue: [], busy: false };
   try { S.queue = JSON.parse(ls.get('kioskQ') || '[]'); } catch (e) { S.queue = []; }
   const saveQ = () => ls.set('kioskQ', JSON.stringify(S.queue));
 
@@ -286,7 +286,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
     else if (S.who === undefined) box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">확인하는 중…</span>`;
     else if (S.who === null) { box.classList.add('bad'); box.innerHTML = `<span class="sn">${esc(sn)}</span><span>빈 좌석이에요. 좌석 번호를 다시 확인해 주세요.</span>`; }
     else if (S.who === 'err') box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">이름을 확인하지 못했어요 (저장은 할 수 있어요)</span>`;
-    else { box.classList.add('ok'); box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="who">${esc(S.who.name)}</span><span class="q">학생 맞나요?</span>`; }
+    else { box.classList.add('ok'); box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">본인 좌석이 맞는지 확인해 주세요</span>`; }
   }
   $('hallRow').onclick = (e) => { const b = e.target.closest('[data-h]'); if (!b) return; S.hall = b.dataset.h; S.let = null; S.num = null; S.who = undefined; touch(); renderAll(); };
   $('letRow').onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; S.let = b.dataset.l; S.num = null; S.who = undefined; touch(); renderAll(); };
@@ -308,11 +308,17 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
   const isCs = (r) => CS.includes(r);
   function renderReason() {
     const chip = (r, extra, cls) => `<button type="button" class="chip ${cls || ''} ${S.reason === r ? 'on' : ''}" data-r="${esc(r)}" aria-pressed="${S.reason === r}">${esc(r)}${extra || ''}</button>`;
-    $('moveChips').innerHTML = MOVE.map(r => chip(r)).join('');
-    $('csChips').innerHTML = CS.map(r => chip(r, '', 'cs')).join('');
-    $('eduChips').innerHTML = Object.entries(EDU).map(([r, p]) => chip(r, `<span class="pt">${p}점</span>`)).join('');
+    const cats = [['move', '이동'], ['cs', '담임 상담'], ['edu', '교육점수']];
+    $('catRow').innerHTML = cats.map(([k, t]) => `<button type="button" role="tab" class="c-${k} ${S.cat === k ? 'on' : ''}" data-cat="${k}" aria-selected="${S.cat === k}">${t}</button>`).join('');
+    $('rChips').innerHTML = S.cat === 'move' ? MOVE.map(r => chip(r)).join('')
+      : S.cat === 'cs' ? CS.map(r => chip(r, '', 'cs')).join('')
+      : Object.entries(EDU).map(([r, p]) => chip(r, `<span class="pt">${p}점</span>`)).join('');
     $('other').classList.toggle('hidden', S.reason !== '기타');
   }
+  $('catRow').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat]'); if (!b || S.cat === b.dataset.cat) return;
+    S.cat = b.dataset.cat; S.reason = null; S.ret = null; S.cs = null; touch(); renderAll();
+  });
   document.querySelector('.form').addEventListener('click', (e) => {
     const c = e.target.closest('[data-r]'); if (!c) return;
     const r = c.dataset.r; const was = S.reason;
@@ -404,11 +410,10 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
     if (missing()) return;
     const sn = seatNo(), edu = isEdu(S.reason), cs = isCs(S.reason);
     const reasonTxt = S.reason === '기타' ? `기타 · ${$('other').value.trim()}` : S.reason;
-    const who = S.who && S.who !== 'err' ? S.who.name : '';
     const third = cs ? ['상담', `${S.cs.teacher} 선생님 · ${+S.cs.day.slice(5, 7)}/${+S.cs.day.slice(8)} ${S.cs.time}`]
                      : [edu ? '교시' : '복귀', S.ret === '복귀안함' ? '복귀안함' : S.ret + '교시'];
     openDlg(`<h3>${cs ? esc(S.reason) : edu ? '교육점수 기록' : '이동 기록'} 확인</h3>
-      <dl class="sum"><dt>좌석</dt><dd>${esc(sn)} ${esc(who)}</dd>
+      <dl class="sum"><dt>좌석</dt><dd>${esc(sn)}</dd>
         <dt>사유</dt><dd class="${edu ? 'e' : ''}">${esc(reasonTxt)}${edu ? ` (${EDU[S.reason]}점)` : ''}</dd>
         <dt>${third[0]}</dt><dd>${esc(third[1])}</dd></dl>
       ${edu ? '<div class="warn">교육점수가 기록돼요. 본인 좌석이 맞는지 꼭 확인해 주세요.</div>' : ''}
@@ -418,7 +423,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
 
   function save() {
     const item = { client_id: uuid(), seat: seatNo(), reason: S.reason, ret: S.ret, note: S.reason === '기타' ? $('other').value.trim() : null,
-                   floor: floorArg(), kind: isEdu(S.reason) ? 'edu' : 'move', name: S.who && S.who !== 'err' ? S.who.name : '', time: kstHM(), at: Date.now() };
+                   floor: floorArg(), kind: isEdu(S.reason) ? 'edu' : 'move', time: kstHM(), at: Date.now() };
     S.queue.push(item); saveQ();
     resetForm(); renderList();
     flushQueue(item.client_id);
@@ -431,7 +436,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
           const { data, error } = await db.rpc('kiosk_add', { p_client_id: it.client_id, p_seat: it.seat, p_reason: it.reason, p_return: it.ret, p_note: it.note, p_floor: it.floor });
           if (error) throw error;
           S.queue = S.queue.filter(x => x.client_id !== it.client_id); saveQ(); setNet(false);
-          if (it.client_id === showFor) done('저장됐어요', `${it.seat} ${data?.name || it.name}`);
+          if (it.client_id === showFor) done('저장됐어요', it.seat);
         } catch (e) {
           if (isNetErr(e) || /JWT|token/i.test(e.message || '')) {
             setNet(true); if (it.client_id === showFor) done('이 태블릿에 보관했어요', '인터넷이 연결되면 자동으로 보내요', '⏳');
@@ -461,7 +466,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
       }
     }
     if (ok) {
-      S.list.unshift({ kind: 'cs', seat: sn, name: S.who?.name || '', reason: cs.reason, ret: `${+cs.day.slice(5, 7)}/${+cs.day.slice(8)} ${cs.time}`, time: kstHM(), local: true });
+      S.list.unshift({ kind: 'cs', seat: sn, reason: cs.reason, ret: `${+cs.day.slice(5, 7)}/${+cs.day.slice(8)} ${cs.time}`, time: kstHM(), local: true });
       let keep = []; try { keep = JSON.parse(ls.get('kioskCs') || '[]').filter(x => x.day === kstDay()); } catch (e) {}
       keep.unshift({ ...S.list[0], day: kstDay() }); ls.set('kioskCs', JSON.stringify(keep.slice(0, 30)));
       done(cs.reason === '상담 취소' ? '상담을 취소했어요' : '상담을 신청했어요', `${cs.teacher} 선생님 · ${+cs.day.slice(5, 7)}/${+cs.day.slice(8)} ${cs.time}${unsure ? ' (전송 확인은 못 했어요)' : ''}`);
@@ -488,7 +493,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
               : `${esc(x.reason === '기타' && x.note ? x.note : x.reason)} · ${x.ret === '복귀안함' ? '복귀안함' : esc(x.ret) + '교시 복귀'}`;
       const st = x.q ? (x.err ? `<span class="st err" title="${esc(x.err)}">실패</span><button type="button" class="ub" data-drop="${esc(x.client_id)}">지우기</button>` : '<span class="st wait">보내는 중</span>')
                : x.can_undo ? `<button type="button" class="ub" data-undo="${esc(x.client_id)}">취소</button>` : '';
-      return `<div class="it"><span class="t">${esc(x.time)}</span><div class="m"><b>${esc(x.seat)} ${esc(x.name)}</b><div class="r">${r}</div>${x.err ? `<div class="r" style="color:var(--bad)">${esc(x.err)}</div>` : ''}</div>${st}</div>`;
+      return `<div class="it"><span class="t">${esc(x.time)}</span><div class="m"><b>${esc(x.seat)}</b><div class="r">${r}</div>${x.err ? `<div class="r" style="color:var(--bad)">${esc(x.err)}</div>` : ''}</div>${st}</div>`;
     }).join('') : '<div class="empty">오늘 넣은 기록이 아직 없어요</div>';
   }
   $('list').addEventListener('click', (e) => {
@@ -496,7 +501,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
     if (d) { S.queue = S.queue.filter(x => x.client_id !== d.dataset.drop); saveQ(); renderList(); return; }
     if (!u) return;
     const it = S.list.find(x => x.client_id === u.dataset.undo);
-    openDlg(`<h3>이 기록을 취소할까요?</h3><dl class="sum"><dt>좌석</dt><dd>${esc(it?.seat)} ${esc(it?.name)}</dd><dt>사유</dt><dd>${esc(it?.reason)}</dd></dl>
+    openDlg(`<h3>이 기록을 취소할까요?</h3><dl class="sum"><dt>좌석</dt><dd>${esc(it?.seat)}</dd><dt>사유</dt><dd>${esc(it?.reason)}</dd></dl>
       <div class="btns"><button type="button" class="btn-line" data-x>그대로 두기</button><button type="button" class="btn-primary" id="unOk">취소하기</button></div>`);
     $('unOk').onclick = async () => {
       closeDlg();
@@ -508,7 +513,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
 
   // ---------- 공통 ----------
   function renderAll() { renderSeat(); renderReason(); renderRet(); renderCs(); renderGo(); }
-  function resetForm() { S.hall = null; S.let = null; S.num = null; S.who = undefined; S.whoSeq++; S.reason = null; S.ret = null; S.cs = null; $('other').value = ''; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function resetForm() { S.hall = null; S.let = null; S.num = null; S.who = undefined; S.whoSeq++; S.cat = 'move'; S.reason = null; S.ret = null; S.cs = null; $('other').value = ''; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function openDlg(html) { const d = $('dlg'); d.innerHTML = `<div class="dlg">${html}</div>`; d.classList.remove('hidden'); }
   function closeDlg() { $('dlg').classList.add('hidden'); $('dlg').innerHTML = ''; }
   $('dlg').addEventListener('click', (e) => { if (e.target.closest('[data-x]') || e.target === $('dlg')) closeDlg(); });
