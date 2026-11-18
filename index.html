@@ -38,7 +38,7 @@ header.top{background:var(--card);border-bottom:1px solid var(--line);position:s
 .badge{font-size:12px;font-weight:700;color:var(--ok);background:var(--okSoft);padding:3px 8px;border-radius:999px}
 .floor-sel{height:34px;border:1px solid #D5D9E0;border-radius:9px;padding:0 8px;background:#fff;font-weight:700}
 nav.tabs{display:flex;gap:4px}
-nav.tabs button{min-height:40px;padding:0 14px;border-radius:10px;border:0;background:transparent;color:var(--sub);font-weight:700}
+nav.tabs button{min-height:40px;padding:0 14px;border-radius:10px;border:0;background:transparent;color:var(--sub);font-weight:700;white-space:nowrap;flex-shrink:0}
 nav.tabs button.on{background:var(--ink);color:#fff}
 .datebox{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:14px}
 .icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid #D5D9E0;background:#fff;display:inline-flex;align-items:center;justify-content:center}
@@ -231,6 +231,25 @@ table.week td.today{background:#F8FAFF}
 .dropped .it{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#fff;border:1px dashed #D5D9E0;border-radius:10px;padding:6px 6px 6px 12px}
 @media (max-width:899px){ .sch-wrap{grid-template-columns:minmax(0,1fr)} .pick{position:static;max-height:none} .pick-list{max-height:220px} }
 
+.rtag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin:2px 4px 0 0;white-space:nowrap}
+.rtag.sch{background:var(--schSoft);color:var(--schInk)}
+.rtag.survey{background:#DCFCE7;color:#14532D}
+.rtag.move{background:#E0F2FE;color:#0C4A6E}
+.abs-sec{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.abs-sec h3{margin:0;padding:12px 14px;font-size:15px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line2)}
+.abs-sec h3 small{font-weight:500;color:var(--sub);font-size:12px}
+.arow2{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line2);flex-wrap:wrap}
+.arow2:first-of-type{border-top:0}
+.arow2 .who2{min-width:180px;flex:1}
+.arow2 .who2 b{font-size:15px}
+.arow2 .meta2{font-size:12px;color:var(--sub)}
+.mini8{display:flex;gap:3px}
+.mini8 i{width:18px;height:18px;border-radius:5px;font-style:normal;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:1px solid #D5D9E0;color:var(--sub);background:#fff}
+.mini8 i.s1{background:var(--ok);border-color:var(--ok);color:#fff}
+.mini8 i.s2{background:var(--late);border-color:var(--late);color:#fff}
+.mini8 i.cur{box-shadow:0 0 0 2px var(--ink)}
+.mini8 i.fut{background:#F4F5F7;border-color:#EEF0F3;color:#C4C9D2}
+
 /* 알림 */
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:80;background:var(--ink);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:calc(100% - 24px);font-size:13px}
 #toast button{border:0;background:transparent;color:#93B4FF;font-weight:700;min-height:40px;padding:0 10px}
@@ -243,6 +262,9 @@ table.week td.today{background:#F8FAFF}
   .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
   .kpi.opt{display:none}
   .datebox{margin-left:0;width:100%;justify-content:space-between}
+  nav.tabs{order:3;width:100%;overflow-x:auto;scrollbar-width:none} nav.tabs::-webkit-scrollbar{display:none}
+  nav.tabs button{padding:0 12px}
+  .abs-sec h3{flex-direction:column;align-items:flex-start;gap:2px}
   .datebox .d{flex:1}
   .who .nm{display:none}
   .search{margin-left:0;width:100%}
@@ -277,6 +299,7 @@ table.week td.today{background:#F8FAFF}
       </div>
       <nav class="tabs" aria-label="메뉴">
         <button type="button" id="tabAtt" class="on">출결</button>
+        <button type="button" id="tabAbs">미등원</button>
         <button type="button" id="tabStat">등원 현황</button>
         <button type="button" id="tabSch">스케줄 관리</button>
         <button type="button" id="tabImp">단과 관리</button>
@@ -353,6 +376,17 @@ table.week td.today{background:#F8FAFF}
       <div id="impFiles" style="margin-top:8px;font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:4px"></div>
       <div id="impPreview"></div>
     </section>
+  </main>
+
+  <main id="viewAbs" class="hidden">
+    <div class="kpis" id="absKpis"></div>
+    <div class="toolbar">
+      <div class="pills" id="absPills" role="group" aria-label="교시 선택"></div>
+      <label class="ctl">담임 <select id="absT"><option value="">전체</option></select></label>
+      <label class="chk"><input type="checkbox" id="absAllDay"> 오늘 한 번도 안 온 학생만</label>
+      <button type="button" class="btn-line" id="absCopy" style="margin-left:auto">사유 없음 명단 복사</button>
+    </div>
+    <div id="absList"></div>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -463,6 +497,7 @@ table.week td.today{background:#F8FAFF}
       if (!S.day || rolled) { S.day = data.today; if (rolled) { S.loading = false; return load(); } }
       if (S.period === null || first) S.period = isToday() ? currentPeriodIdx() : 0;
       ingest(data);
+      await loadExtras();
       setNet(false);
       render();
     } catch (e) {
@@ -500,6 +535,51 @@ table.week td.today{background:#F8FAFF}
     const teachers = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
     tSel.innerHTML = '<option value="">전체</option>' + teachers.map(t => `<option ${t === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
   }
+  // ---------- 설문 · 이동 기록 (관리자 페이지와 같은 계산) ----------
+  function periodFromTime(t) {
+    if (!t) return 0; const [h, m] = String(t).split(':').map(Number); const x = h * 60 + m;
+    if (x < 8 * 60 + 30) return 1; if (x < 10 * 60 + 10) return 2; if (x < 12 * 60 + 10) return 3; if (x < 14 * 60 + 30) return 4;
+    if (x < 15 * 60 + 50) return 5; if (x < 17 * 60 + 30) return 6; if (x < 20 * 60 + 10) return 7; return 8;
+  }
+  function ingestExtras(data) {
+    const ex = {};   // ex[학번][교시0~7] = [{type, text}]
+    const put = (sid, p, item) => { ((ex[sid] ||= {})[p - 1] ||= []).push(item); };
+    (data?.survey || []).forEach(v => {
+      const tt = v.arrival || ''; let a = 0, b = 0;
+      if (tt.includes('결석')) { a = 1; b = 8; } else if (tt.includes('오전')) { a = 1; b = 3; } else if (tt.includes('오후')) { a = 1; b = 6; } else if (tt.includes('야간') || tt.includes('저녁')) { a = 1; b = 7; }
+      const reason = (v.reason || '').split('(')[0].trim();
+      for (let p = a; p <= b && a > 0; p++) put(v.student_id, p, { type: 'survey', text: `설문 · ${reason || '사유 없음'}${tt ? ` (${tt})` : ''}`, full: v.reason || '' });
+    });
+    const moves = data?.move || [];
+    const canceled = new Set(moves.filter(m => (m.reason || '').includes('취소') && m.return_period).map(m => m.return_period));
+    moves.forEach(m => {
+      const reason = m.reason || '';
+      if (reason === '화장실/정수기' || reason.includes('취소')) return;
+      if (reason.includes('상담') && canceled.has(m.return_period)) return;
+      let tDate = m.move_date, tTime = m.move_time;
+      if (reason.includes('상담') && m.return_period && m.return_period.includes('-')) { const parts = m.return_period.split(' '); tDate = parts[0]; if (parts[1]) tTime = parts[1]; }
+      if (tDate !== S.day) return;
+      let rp = parseInt(m.return_period, 10) || 0; if (m.return_period === '복귀안함') rp = 8;
+      const sp = periodFromTime(tTime);
+      if (reason.includes('상담') || String(m.return_period || '').includes('-')) rp = sp;
+      if (rp > 8) rp = 8;
+      const back = m.return_period === '복귀안함' ? '복귀안함' : (rp && rp !== sp ? `${rp}교시 복귀` : '');
+      const text = `이동 · ${reason}${m.new_seat ? ` → ${m.new_seat}` : ''}${back ? ` (${back})` : ''}`;
+      if (rp > 0) { for (let p = (sp > 0 ? sp : rp); p <= rp; p++) put(m.student_id, p, { type: 'move', text }); }
+      else put(m.student_id, sp > 0 ? sp : 1, { type: 'move', text });
+    });
+    S.extras = ex;
+  }
+  async function loadExtras() {
+    try { const { data, error } = await db.rpc('work_day_extras', { p_day: S.day, p_floor: S.floor }); if (error) throw error; ingestExtras(data); S.extrasAt = Date.now(); }
+    catch (e) { if (!S.extras) S.extras = {}; }
+  }
+  function reasonsOf(r, i) {
+    const out = []; const t = schedTitle(r, i); if (t) out.push({ type: 'sch', text: t });
+    ((S.extras || {})[r.id]?.[i] || []).forEach(x => { if (!out.some(o => o.text === x.text)) out.push(x); });
+    return out;
+  }
+  function tagsHtml(list) { return list.map(x => `<span class="rtag ${x.type}">${esc(x.text)}</span>`).join(''); }
   function setChar(s, i, c) { return s.slice(0, i) + c + s.slice(i + 1); }
   function codeOf(r, i) { const a = S.att[r.id]; return a ? a.codes[i] : '3'; }
   function schedOf(r, i) { return (S.sched[r.id] && S.sched[r.id][i]) || []; }
@@ -575,7 +655,7 @@ table.week td.today{background:#F8FAFF}
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'sch') renderSchPick();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -620,8 +700,10 @@ table.week td.today{background:#F8FAFF}
     let label;
     if (fut) { cls += ' fut'; label = '–'; }
     else { cls += ' s' + code; label = code === '1' ? '출석' : code === '2' ? '지각' : '결석'; }
-    const sub = t && !wide && !o.num ? `<small>${esc(t)}</small>` : '';
-    const aria = `${r.seat} ${r.name} ${i + 1}교시 ${fut ? '아직' : label}${t ? ' 스케줄 ' + t : ''}${memo ? ' 메모 ' + memo : ''}`;
+    const ex = (S.extras || {})[r.id]?.[i] || [];
+    const exShort = ex.length ? (ex.some(x => x.type === 'survey') ? '설문' : '이동') : '';
+    const sub = !wide && !o.num ? (t ? `<small>${esc(t)}</small>` : exShort && !fut ? `<small style="color:${code === '3' ? '#0C4A6E' : 'inherit'}">${exShort}</small>` : '') : '';
+    const aria = `${r.seat} ${r.name} ${i + 1}교시 ${fut ? '아직' : label}${t ? ' 스케줄 ' + t : ''}${ex.length ? ' ' + ex.map(x => x.text).join(', ') : ''}${memo ? ' 메모 ' + memo : ''}`;
     const num = o.num ? `<b style="display:block;font-size:12px">${i + 1}</b>` : '';
     return `<button type="button" class="${cls}" ${o.style ? `style="${o.style}"` : ''} data-id="${esc(r.id)}" data-i="${i}" ${fut ? 'disabled' : ''} aria-label="${esc(aria)}">${num}${label}${memo ? '<span class="memo-dot" aria-hidden="true"></span>' : ''}${sub}</button>`;
   }
@@ -636,7 +718,7 @@ table.week td.today{background:#F8FAFF}
       const day = S.range === 'day';
       const head = `<tr><th>좌석</th><th>구분</th><th>이름</th><th>학번</th><th>담임</th><th>성별</th><th>학년</th>` +
         (day ? PT.map((p, i) => `<th class="p ${i === curIdx ? 'cur' : ''}">${p[0]}교시<span>${p[1]}</span></th>`).join('')
-             : `<th>스케줄 · ${S.period + 1}교시</th><th class="p cur" style="width:160px">출결<span>${PT[S.period][1]}–${PT[S.period][2]}</span></th><th>메모</th>`) + '</tr>';
+             : `<th>스케줄 · 설문 · 이동 · ${S.period + 1}교시</th><th class="p cur" style="width:160px">출결<span>${PT[S.period][1]}–${PT[S.period][2]}</span></th><th>메모</th>`) + '</tr>';
       let lastHall = null;
       const body = rows.map(r => {
         let g = '';
@@ -644,8 +726,8 @@ table.week td.today{background:#F8FAFF}
         if (r.empty) return g + `<tr class="empty"><td class="num"><b>${esc(r.seat)}</b></td><td>${stHtml(r)}</td><td colspan="${day ? 13 : 8}"></td></tr>`;
         const info = `<td class="num"><b>${esc(r.seat)}</b></td><td>${stHtml(r)}</td><td><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button></td><td class="num">${esc(r.id)}</td><td>${esc(r.teacher)}</td><td>${esc(r.gender)}</td><td>${esc(r.grade)}</td>`;
         if (day) return g + `<tr>${info}${PT.map((p, i) => `<td class="c ${i === curIdx ? 'cur' : ''}">${cellHtml(r, i, false, false)}</td>`).join('')}</tr>`;
-        const t = schedTitle(r, S.period); const memo = memoOf(r, S.period);
-        return g + `<tr>${info}<td>${t ? `<span class="sch-tag">${esc(t)}</span>` : '<span style="color:var(--mute)">–</span>'}</td><td class="c cur">${cellHtml(r, S.period, true, false)}</td><td style="color:var(--sub);max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(memo)}</td></tr>`;
+        const rsn = reasonsOf(r, S.period); const memo = memoOf(r, S.period);
+        return g + `<tr>${info}<td style="white-space:normal;max-width:320px">${rsn.length ? tagsHtml(rsn) : '<span style="color:var(--mute)">–</span>'}</td><td class="c cur">${cellHtml(r, S.period, true, false)}</td><td style="color:var(--sub);max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(memo)}</td></tr>`;
       }).join('');
       area.innerHTML = `<div class="tbox"><table class="sheet"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
     } else {
@@ -657,18 +739,73 @@ table.week td.today{background:#F8FAFF}
         return `<div><div class="mgrp-h"><span>${S.floor}-${g.hall}관 ${esc(g.row)}열</span><span style="font-weight:500">${absent ? '결석 ' + absent : '모두 등원'}</span></div><div class="mgrp-b">${g.rows.map(r => {
           if (r.empty) return `<div class="mrow empty"><div class="mtop"><span class="mseat">${esc(r.seat.replace(/^\d+-/, ''))}</span><span>잔여석</span></div></div>`;
           const todays = []; PT.forEach((p, i) => { const t = schedTitle(r, i); if (t) todays.push(`${i + 1}교시 ${t}`); });
+          const exAll = []; Object.values((S.extras || {})[r.id] || {}).forEach(list => list.forEach(x => { if (!exAll.some(e => e.text === x.text)) exAll.push(x); }));
           const schLine = day ? todays.join(', ') : schedTitle(r, P);
+          const exList = day ? exAll : ((S.extras || {})[r.id]?.[P] || []);
           const memo = day ? '' : memoOf(r, P);
           return `<div class="mrow"><div class="mtop"><span class="mseat">${esc(r.seat.replace(/^\d+-/, ''))}</span>
             <div class="minfo"><span class="mname"><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button> ${stHtml(r)}</span>
               <span class="mmeta num">${esc(r.id)} · ${esc(r.teacher)} · ${esc(r.gender)} · ${esc(r.grade)}</span>
-              ${schLine ? `<span class="msch">스케줄 · ${esc(schLine)}</span>` : ''}${memo ? `<span class="mmeta">메모 · ${esc(memo)}</span>` : ''}</div>
+              ${schLine ? `<span class="msch">스케줄 · ${esc(schLine)}</span>` : ''}${exList.length ? `<span>${tagsHtml(exList)}</span>` : ''}${memo ? `<span class="mmeta">메모 · ${esc(memo)}</span>` : ''}</div>
             ${day ? '' : cellHtml(r, P, false, false, { style: 'width:72px;min-height:46px;font-size:13px' })}</div>
             ${day ? `<div class="mcells">${PT.map((p, i) => cellHtml(r, i, false, i === curIdx, { num: true })).join('')}</div>` : ''}</div>`;
         }).join('')}</div></div>`;
       }).join('')}</div>`;
     }
   }
+
+  // ---------- 미등원 명단 ----------
+  function absPeriod() { if (S.absP !== undefined && S.absP !== null) return S.absP; return isToday() ? currentPeriodIdx() : 7; }
+  function absGroups() {
+    const P = absPeriod(); const open = lastOpenIdx(); const t = $('absT').value; const allDay = $('absAllDay').checked;
+    const live = S.rows.filter(r => !r.empty && (!t || r.teacher === t));
+    const absent = P > open ? [] : live.filter(r => codeOf(r, P) === '3' && (!allDay || [...Array(Math.min(open, 7) + 1).keys()].every(i => codeOf(r, i) === '3')));
+    const g = { none: [], survey: [], move: [], sch: [] };
+    absent.forEach(r => { const rs = reasonsOf(r, P); const k = rs.find(x => x.type === 'survey') ? 'survey' : rs.find(x => x.type === 'move') ? 'move' : rs.length ? 'sch' : 'none'; g[k].push({ r, rs }); });
+    return { P, open, live, absent, g };
+  }
+  function renderAbs() {
+    const { P, open, live, absent, g } = absGroups();
+    const cur = isToday() ? currentPeriodIdx() : -1;
+    const tSel = $('absT'); const tv = tSel.value; const teachers = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
+    tSel.innerHTML = '<option value="">전체</option>' + teachers.map(x => `<option ${x === tv ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    $('absPills').innerHTML = PT.map((p, i) => `<button type="button" data-ap="${i}" class="${i === P ? 'on' : ''} ${i === cur ? 'now' : ''}" aria-pressed="${i === P}" aria-label="${p[0]}교시">${p[0]}<span class="pk">교시</span></button>`).join('');
+    $('absKpis').innerHTML = `
+      <div class="kpi"><div class="l">${P + 1}교시 결석</div><div class="v">${absent.length} <small>/ ${live.length}명</small></div></div>
+      <div class="kpi"><div class="l">사유 없음 (확인 필요)</div><div class="v" style="color:var(--late)">${g.none.length}명</div></div>
+      <div class="kpi"><div class="l">설문</div><div class="v" style="color:#14532D">${g.survey.length}명</div></div>
+      <div class="kpi opt"><div class="l">이동</div><div class="v" style="color:#0C4A6E">${g.move.length}명</div></div>
+      <div class="kpi opt"><div class="l">스케줄</div><div class="v" style="color:var(--schInk)">${g.sch.length}명</div></div>`;
+    if (P > open) { $('absList').innerHTML = `<div class="empty-note">${P + 1}교시는 아직 시작 전이에요.</div>`; return; }
+    const row = ({ r, rs }) => `<div class="arow2">
+        <span class="num" style="width:64px;font-weight:700">${esc(r.seat)}</span>
+        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button></b> ${r.status === '퇴원예정' ? '<span class="st out">퇴원예정</span>' : ''}
+          <div class="meta2 num">${esc(r.id)} · ${esc(r.teacher)} · ${esc(r.gender)} · ${esc(r.grade)}</div>
+          ${rs.length ? `<div>${tagsHtml(rs)}</div>` : ''}</div>
+        <div class="mini8" aria-label="오늘 교시별">${PT.map((p, i) => { const c = codeOf(r, i); const fut = i > open; return `<i class="${fut ? 'fut' : 's' + c} ${i === P ? 'cur' : ''}" title="${i + 1}교시 ${fut ? '' : c === '1' ? '출석' : c === '2' ? '지각' : '결석'}">${i + 1}</i>`; }).join('')}</div>
+        <button type="button" class="btn-line" data-absok="${esc(r.id)}" aria-label="${esc(r.name)} ${P + 1}교시 출석으로">출석으로</button>
+      </div>`;
+    const sec = (key, title, sub, color) => g[key].length ? `<section class="abs-sec"><h3><span style="color:${color}">${title} ${g[key].length}명</span><small>${sub}</small></h3>${g[key].map(row).join('')}</section>` : '';
+    $('absList').innerHTML = absent.length ? `<div style="display:flex;flex-direction:column;gap:12px">
+      ${sec('none', '사유 없음', '스케줄 · 설문 · 이동 기록이 없는 결석이에요. 확인이 필요해요.', 'var(--late)')}
+      ${sec('survey', '설문', '미등원 설문에 응답한 학생', '#14532D')}
+      ${sec('move', '이동', '이동 기록이 있는 학생 (상담 · 보건실 · 외출 등)', '#0C4A6E')}
+      ${sec('sch', '스케줄', '단과 · 담임 입력 스케줄이 있는 학생', 'var(--schInk)')}</div>`
+      : `<div class="empty-note">${P + 1}교시 결석인 학생이 없어요.</div>`;
+  }
+  $('absPills').onclick = (ev) => { const b = ev.target.closest('[data-ap]'); if (!b) return; S.absP = +b.dataset.ap; renderAbs(); };
+  $('absT').onchange = renderAbs; $('absAllDay').onchange = renderAbs;
+  $('absList').addEventListener('click', (ev) => {
+    const o = ev.target.closest('[data-open]'); if (o) return openDetail(o.dataset.open, absPeriod());
+    const b = ev.target.closest('[data-absok]'); if (!b) return;
+    const r = S.rows.find(x => x.id === b.dataset.absok); if (r) setAtt(r, absPeriod(), '1');
+  });
+  $('absCopy').onclick = async () => {
+    const { P, g } = absGroups();
+    const text = `${dayLabel(S.day)} ${P + 1}교시 사유 없는 결석 ${g.none.length}명\n` + g.none.map(({ r }) => `${r.seat} ${r.name} (${r.teacher})`).join('\n');
+    try { await navigator.clipboard.writeText(text); toast('명단을 복사했어요.'); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('명단을 복사했어요.'); } catch (x) { toast('복사하지 못했어요.', { err: true }); } ta.remove(); }
+  };
 
   // ---------- 등원 현황 ----------
   function renderStat() {
@@ -1284,12 +1421,12 @@ table.week td.today{background:#F8FAFF}
   $('fStatus').onchange = (ev) => { S.fStatus = ev.target.value; render(); };
   $('fQ').oninput = (ev) => { S.q = ev.target.value; render(); };
   $('floorSel').onchange = (ev) => { S.floor = +ev.target.value; ls.set('workFloor', String(S.floor)); S.hall = 'all'; S.fTeacher = ''; load(); };
-  $('prevDay').onclick = () => { S.day = addDays(S.day, -1); S.period = 0; load(); };
-  $('nextDay').onclick = () => { S.day = addDays(S.day, 1); S.period = 0; load(); };
-  $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); load(); };
+  $('prevDay').onclick = () => { S.day = addDays(S.day, -1); S.period = 0; S.absP = null; load(); };
+  $('nextDay').onclick = () => { S.day = addDays(S.day, 1); S.period = 0; S.absP = null; load(); };
+  $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['stat', 'tabStat', 'viewStat'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     render();
@@ -1298,6 +1435,7 @@ table.week td.today{background:#F8FAFF}
   $('tabStat').onclick = () => setTab('stat');
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
   $('tabSch').onclick = () => setTab('sch');
+  $('tabAbs').onclick = () => setTab('abs');
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
@@ -1320,6 +1458,7 @@ table.week td.today{background:#F8FAFF}
         if (!cur || cur.codes !== codes || JSON.stringify(cur.memos) !== JSON.stringify(a.memos || {})) { S.att[a.student_id] = { codes, memos: a.memos || {} }; changed = true; }
       });
       setNet(false);
+      if (Date.now() - (S.extrasAt || 0) > 120e3) { await loadExtras(); changed = true; }
       if (changed && $('detail').classList.contains('hidden')) render();
       // 날짜가 바뀌었는지 (새벽) 확인
       const kstToday = new Date(serverNow() + 9 * 3600e3).toISOString().slice(0, 10);
