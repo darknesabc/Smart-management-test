@@ -924,6 +924,14 @@ table.week td.today{background:#F8FAFF}
     const c = smsCompute();
     if (c.notYet) { $('smsBody').innerHTML = `<div class="empty-note">${c.R}교시는 아직 시작 전이에요.</div>`; return; }
     const noPhone = c.targets.filter(x => !phoneOf(x.r)).length;
+    // 위 숫자 카드를 누르면 그 목록만 (다시 누르면 전체)
+    const cnt = { target: c.targets.length, nophone: noPhone, skip: c.skipped.length };
+    if (S.smsF && !cnt[S.smsF]) S.smsF = '';
+    const F = S.smsF || '';
+    const kb = (k, label, n, color) => `<button type="button" class="kpi ${F === k ? 'on' : ''}" data-sf="${k}" aria-pressed="${F === k}" ${n ? '' : 'disabled'}>
+        <div class="l">${label}<span class="go">${F === k ? '보는 중' : '보기 ›'}</span></div><div class="v" style="color:${color}">${n}명</div></button>`;
+    const showT = F !== 'skip', showS = !F || F === 'skip';
+    const tList = F === 'nophone' ? c.targets.filter(x => !phoneOf(x.r)) : c.targets;
     const mine = c.sent.filter(x => x.round === c.R);
     const rule = c.R === 1 ? '1교시 결석 중에서 이동 · 설문 · 스케줄 · 2교시 출석 · 담임 제외를 뺀 학생이에요.' : `${c.R}교시 결석 중에서 이동 · 설문 · 스케줄 · 담임 제외를 뺀 학생이에요.`;
     const warn = c.R === 1 && c.open < 1 ? '<p class="sms-note warn">아직 2교시 전이라 "2교시 출석" 제외가 반영되지 않았어요. 2교시 출석 체크 뒤에 명단을 뽑아 주세요.</p>' : '';
@@ -938,9 +946,9 @@ table.week td.today{background:#F8FAFF}
       </div>`;
     $('smsBody').innerHTML = `
       <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-        <div class="kpi"><div class="l">${c.R}교시 문자 대상</div><div class="v" style="color:var(--late)">${c.targets.length}명</div></div>
-        <div class="kpi"><div class="l">연락처 없음</div><div class="v" style="color:${noPhone ? 'var(--late)' : 'var(--mute)'}">${noPhone}명</div></div>
-        <div class="kpi"><div class="l">결석이지만 제외</div><div class="v" style="color:var(--sub)">${c.skipped.length}명</div></div>
+        ${kb('target', `${c.R}교시 문자 대상`, c.targets.length, 'var(--late)')}
+        ${kb('nophone', '연락처 없음', noPhone, noPhone ? 'var(--late)' : 'var(--mute)')}
+        ${kb('skip', '결석이지만 제외', c.skipped.length, 'var(--sub)')}
       </div>
       <p class="sms-note" style="margin-top:10px">${rule} 화면을 띄워 둔 사이 출석 · 설문 · 이동이 들어오면 명단에서 바로 빠져요.</p>${warn}
       ${mine.map(m => `<div class="sms-sent">✓ ${esc(m.at)} ${esc(m.by)} 선생님이 ${c.R}교시 문자 발송 완료로 표시했어요 (${(m.ids || []).length}명)<button type="button" data-unsent="${m.id}">표시 취소</button></div>`).join('')}
@@ -951,9 +959,9 @@ table.week td.today{background:#F8FAFF}
         <button type="button" class="btn-dark" data-sa="sent" style="margin-left:auto" ${c.targets.length ? '' : 'disabled'}>발송 완료로 표시</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:12px">
-        <section class="abs-sec"><h3><span style="color:var(--late)">문자 보낼 학생 ${c.targets.length}명</span><small>학부모 연락처로 보내요</small></h3>
-          ${c.targets.length ? c.targets.map(x => row(x, false)).join('') : '<div style="padding:20px;color:var(--sub)">보낼 학생이 없어요.</div>'}</section>
-        ${c.skipped.length ? `<section class="abs-sec"><h3><span style="color:var(--sub)">결석이지만 빠진 학생 ${c.skipped.length}명</span><small>빠진 이유</small></h3>${c.skipped.map(x => row(x, true)).join('')}</section>` : ''}
+        ${showT ? `<section class="abs-sec"><h3><span style="color:var(--late)">${F === 'nophone' ? `연락처 없는 학생 ${tList.length}명` : `문자 보낼 학생 ${c.targets.length}명`}</span><small>${F === 'nophone' ? '문자를 못 받아요. 다른 연락 방법이 필요해요' : '학부모 연락처로 보내요'}</small></h3>
+          ${tList.length ? tList.map(x => row(x, false)).join('') : '<div style="padding:20px;color:var(--sub)">보낼 학생이 없어요.</div>'}</section>` : ''}
+        ${showS && c.skipped.length ? `<section class="abs-sec"><h3><span style="color:var(--sub)">결석이지만 빠진 학생 ${c.skipped.length}명</span><small>빠진 이유</small></h3>${c.skipped.map(x => row(x, true)).join('')}</section>` : ''}
       </div>`;
   }
   $('smsRound').onclick = (e) => { const b = e.target.closest('[data-sr]'); if (!b) return; S.smsR = +b.dataset.sr; renderSms(); };
@@ -964,6 +972,7 @@ table.week td.today{background:#F8FAFF}
   }
   $('smsBody').addEventListener('click', async (e) => {
     const o = e.target.closest('[data-open]'); if (o) return openDetail(o.dataset.open, S.smsR - 1);
+    const f = e.target.closest('[data-sf]'); if (f) { if (f.disabled) return; S.smsF = S.smsF === f.dataset.sf ? '' : f.dataset.sf; return renderSms(); }
     const x = e.target.closest('[data-smsx]'); if (x) return openSmsEx(x.dataset.smsx);
     const u = e.target.closest('[data-unsent]');
     if (u) { if (!confirm('발송 완료 표시를 취소할까요?')) return; try { const { error } = await db.rpc('work_sms_unmark_sent', { p_id: +u.dataset.unsent }); if (error) throw error; } catch (err) { toast(err.message || '취소하지 못했어요.', { err: true }); } return loadSms(); }
