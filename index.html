@@ -1347,16 +1347,15 @@ table.rep tr.tot td.adj{background:#FEF3C7}
   function repCanvas() {
     const D = S.repData; if (!D) return null;
     const cols = [['담임', 92], ['재원생', 64], ['소계', 60], ...REP_COLS.map(([, l]) => [l, 58])];
-    const W = cols.reduce((a, c) => a + c[1], 0) + 40, rowH = 34, headH = 30;
-    const H = 72 + headH * 2 + rowH * (D.rows.length + 1) + 30;
+    const M = 2;   // 표만 (제목 · 시간 · 설명 없이)
+    const W = cols.reduce((a, c) => a + c[1], 0) + M * 2, rowH = 34, headH = 30;
+    const H = headH * 2 + rowH * (D.rows.length + 1) + M * 2;
     const s = 2, cv = document.createElement('canvas'); cv.width = W * s; cv.height = H * s;
     const g = cv.getContext('2d'); g.scale(s, s);
     const F = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#15181D'; g.font = `800 20px ${F}`; g.textBaseline = 'middle';
-    g.fillText(`${S.floor}층 인원보고 · ${dayLabel(S.day)} ${D.P + 1}교시`, 20, 30);
-    g.fillStyle = '#6B7280'; g.font = `500 13px ${F}`; g.fillText(S.repStamp || '', 20, 54);
-    let y = 72; const x0 = 20;
+    g.textBaseline = 'middle';
+    let y = M; const x0 = M;
     const xs = []; cols.reduce((x, c) => { xs.push(x); return x + c[1]; }, x0);
     const box = (x, yy, w, h, fill) => { if (fill) { g.fillStyle = fill; g.fillRect(x, yy, w, h); } g.strokeStyle = '#D5D9E0'; g.lineWidth = 1; g.strokeRect(x + .5, yy + .5, w, h); };
     const text = (t, x, yy, w, h, opt = {}) => {
@@ -1382,7 +1381,6 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       });
       y += rowH;
     });
-    g.fillStyle = '#9AA1AD'; g.font = `500 11px ${F}`; g.fillText('자습 = 그 교시 출석 · 지각은 출석 소계에서 빼고 지각 칸에 따로 셈', 20, y + 16);
     return cv;
   }
   const repName = () => `인원보고_${S.floor}층_${S.day}_${S.repData.P + 1}교시.png`;
