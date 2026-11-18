@@ -1452,14 +1452,14 @@ table.week td.today{background:#F8FAFF}
   // ---------- 태블릿 기록 (이동일지 · 교육점수) ----------
   S.kio = null;
   async function loadKio() {
-    const key = S.day + '|' + S.floor; S.kioKey = key;
-    $('kioBox').innerHTML = '<div style="padding:24px;color:var(--mute)">불러오는 중…</div>';
+    const key = S.day + '|' + S.floor, quiet = S.kioKey === key && S.kio; S.kioKey = key; S.kioAt = Date.now();
+    if (!quiet) { S.kio = null; $('kioBox').innerHTML = '<div style="padding:24px;color:var(--mute)">불러오는 중…</div>'; }
     try {
       const { data, error } = await db.rpc('work_kiosk_list', { p_day: S.day, p_floor: S.floor });
       if (error) throw error;
       if (S.kioKey !== key) return;
       S.kio = data || []; renderKio();
-    } catch (e) { $('kioBox').innerHTML = `<div style="padding:24px;color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
+    } catch (e) { if (quiet) return; $('kioBox').innerHTML = `<div style="padding:24px;color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
   }
   function renderKio() {
     if (!S.kio) return;
@@ -1513,6 +1513,7 @@ table.week td.today{background:#F8FAFF}
   setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     if (queue.length) flushQueue();
+    if (S.tab === 'kio' && Date.now() - (S.kioAt || 0) > 30e3) loadKio();   // 태블릿 기록: 30초마다 새로
     poll();
   }, 20000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.data) poll(); });
