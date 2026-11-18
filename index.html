@@ -489,6 +489,7 @@ table.week td.today{background:#F8FAFF}
   });
   $('logoutBtn').addEventListener('click', async () => {
     try { await db.auth.signOut({ scope: 'local' }); } catch (e) {}
+    try { if (rtCh) { db.removeChannel(rtCh); rtCh = null; } } catch (e) {}
     S.data = null; showLogin();
   });
 
@@ -499,6 +500,30 @@ table.week td.today{background:#F8FAFF}
     const email = session?.user?.email || '';
     $('whoName').textContent = email.split('@')[0] + ' 선생님';
     await load(true);
+    subscribeRT();
+  }
+
+  // ---------- 실시간: 태블릿에서 저장하면 바로 알림 ----------
+  //  끊겨도 괜찮게 1분 자동 확인(poll)은 그대로 둠
+  let rtCh = null, rtT = null;
+  function subscribeRT() {
+    if (!db.channel) return;
+    try {
+      if (rtCh) { db.removeChannel(rtCh); rtCh = null; }
+      const f = S.floor;
+      rtCh = db.channel('kiosk-' + f)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'work_kiosk_log', filter: 'floor=eq.' + f }, () => rtKick())
+        .subscribe();
+    } catch (e) {}
+  }
+  function rtKick() {      // 여러 건이 한꺼번에 와도 2초 모아서 한 번만 받아 옴
+    clearTimeout(rtT);
+    rtT = setTimeout(async () => {
+      if (!S.data || S.day !== S.today) return;
+      await loadExtras();
+      if (S.tab === 'kio') loadKio();
+      if ($('detail').classList.contains('hidden')) render();
+    }, 2000);
   }
 
   // ---------- 데이터 ----------
@@ -1442,7 +1467,7 @@ table.week td.today{background:#F8FAFF}
   $('fTeacher').onchange = (ev) => { S.fTeacher = ev.target.value; render(); };
   $('fStatus').onchange = (ev) => { S.fStatus = ev.target.value; render(); };
   $('fQ').oninput = (ev) => { S.q = ev.target.value; render(); };
-  $('floorSel').onchange = (ev) => { S.floor = +ev.target.value; ls.set('workFloor', String(S.floor)); S.hall = 'all'; S.fTeacher = ''; load(); };
+  $('floorSel').onchange = (ev) => { S.floor = +ev.target.value; ls.set('workFloor', String(S.floor)); S.hall = 'all'; S.fTeacher = ''; load(); subscribeRT(); };
   $('prevDay').onclick = () => { S.day = addDays(S.day, -1); S.period = 0; S.absP = null; load(); };
   $('nextDay').onclick = () => { S.day = addDays(S.day, 1); S.period = 0; S.absP = null; load(); };
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
@@ -1513,7 +1538,7 @@ table.week td.today{background:#F8FAFF}
         if (!cur || cur.codes !== codes || JSON.stringify(cur.memos) !== JSON.stringify(a.memos || {})) { S.att[a.student_id] = { codes, memos: a.memos || {} }; changed = true; }
       });
       setNet(false);
-      if (Date.now() - (S.extrasAt || 0) > 120e3) { await loadExtras(); changed = true; }
+      if (Date.now() - (S.extrasAt || 0) > 60e3) { await loadExtras(); changed = true; }
       if (changed && $('detail').classList.contains('hidden')) render();
       // 날짜가 바뀌었는지 (새벽) 확인
       const kstToday = new Date(serverNow() + 9 * 3600e3).toISOString().slice(0, 10);
@@ -1527,7 +1552,7 @@ table.week td.today{background:#F8FAFF}
     if (S.tab === 'kio' && Date.now() - (S.kioAt || 0) > 30e3) loadKio();   // 태블릿 기록: 30초마다 새로
     poll();
   }, 20000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.data) poll(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.data) { S.extrasAt = 0; poll(); } });
 
   boot();
 })();
