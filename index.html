@@ -337,7 +337,7 @@ table.week td.today{background:#F8FAFF}
       <h2>휴강 처리</h2>
       <p style="color:var(--sub);font-size:13px;margin:0 0 10px">반(수강기호)과 날짜를 고르면 <b>그 반 학생 모두</b> 그날 단과가 빠져요. 출결 화면에서도 스케줄이 사라져요.</p>
       <div class="arow">
-        <input type="search" id="offQ" placeholder="수업 이름 · 강사 · 수강기호 검색" aria-label="휴강할 수업 검색">
+        <input type="search" id="offQ" placeholder="목록에서 찾기: 수업 이름 · 강사 · 수강기호" aria-label="휴강할 수업 검색">
         <label class="ctl">날짜 <input type="date" id="offDay" style="height:44px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px"></label>
       </div>
       <div class="cat" id="offList" style="margin-top:8px"></div>
@@ -1202,11 +1202,23 @@ table.week td.today{background:#F8FAFF}
       renderOffs();
     } catch (e) { $('offUpcoming').innerHTML = `<span class="msg-err">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '불러오지 못했어요.'))}</span>`; }
   }
+  // 고른 날짜에 수업이 있는 강의 (요일 + 개강~종강 안). '모든 강의'를 켜면 날짜와 상관없이
   function offCandidates() {
     const q = ($('offQ').value || '').trim().replace(/\s+/g, ''); const qU = q.toUpperCase();
-    const seen = new Set(); const out = [];
-    (OFF.cat || []).forEach(c => { if (!c.code || seen.has(c.code)) return; if (q && !(c.title.replace(/\s+/g, '').includes(q) || c.code.includes(qU))) return; seen.add(c.code); out.push(c); });
-    return out.slice(0, 40);
+    const day = $('offDay').value; const wd = day ? (new Date(day + 'T00:00:00Z').getUTCDay() || 7) : 0;
+    const all = !!OFF.all;
+    const byKey = {};
+    (OFF.cat || []).forEach(c => {
+      if (!c.code) return;
+      if (q && !(c.title.replace(/\s+/g, '').includes(q) || c.code.includes(qU) || (c.full || '').replace(/\s+/g, '').includes(qU))) return;
+      const meets = c.slots.some(x => Math.floor(x / 10) === wd) && (!c.start || day >= c.start) && (!c.end || day <= c.end);
+      if (!all && !meets) return;
+      const k = c.code; const cur = byKey[k];
+      if (!cur) byKey[k] = { ...c, meets, n: c.n || 0, fulls: [c.full].filter(Boolean) };
+      else { cur.n += c.n || 0; if (c.full) cur.fulls.push(c.full); cur.meets = cur.meets || meets; }
+    });
+    const first = (c) => { const ps = c.slots.filter(x => Math.floor(x / 10) === wd).map(x => x % 10); return ps.length ? Math.min(...ps) : 9; };
+    return Object.values(byKey).sort((a, b) => first(a) - first(b) || a.title.localeCompare(b.title, 'ko')).slice(0, 80).map(c => ({ ...c, first: first(c) }));
   }
   function renderOffs() {
     if (!$('offDay').value) $('offDay').value = S.today || '';
@@ -1214,15 +1226,24 @@ table.week td.today{background:#F8FAFF}
     const offSet = new Set(OFF.list.map(o => o.lkey + '|' + o.day));
     const fmt = (d) => d ? d.slice(5).replace('-', '/') : '';
     const cands = offCandidates();
-    $('offList').innerHTML = !($('offQ').value || '').trim() ? '<span class="selinfo">휴강할 수업을 검색해 주세요. 예: 김종익, 422D3</span>'
-      : cands.length ? cands.map(c => { const on = offSet.has(c.code + '|' + day); return `<div class="it"><div><div class="ti">${esc(c.title)} <span class="num" style="font-weight:500;font-size:12px;color:var(--sub)">${esc(c.code)}</span></div><div class="pt">${esc(slotsText(c.slots))}${c.start ? ` · ${fmt(c.start)}~${fmt(c.end)}` : ''}${c.n ? ` · ${c.n}명` : ''}</div></div>
-        <button type="button" class="${on ? 'btn-line' : 'btn-dark'}" data-off="${esc(c.code)}" data-on="${on ? 0 : 1}">${on ? '휴강 취소' : `${fmt(day)} 휴강`}</button></div>`; }).join('')
-      : '<span class="selinfo">찾는 수업이 없어요.</span>';
+    const wdName = day ? WD[new Date(day + 'T00:00:00Z').getUTCDay()] : '';
+    const head = `<div class="selinfo" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>${OFF.all ? '모든 강의' : `<b style="color:var(--ink)">${fmt(day)} (${wdName})</b>에 수업이 있는 강의`} ${cands.length}개${($('offQ').value || '').trim() ? ' · 검색 결과' : ''}</span>
+        <label class="chk" style="height:36px"><input type="checkbox" id="offAll" ${OFF.all ? 'checked' : ''}> 날짜와 상관없이 모든 강의</label></div>`;
+    $('offList').innerHTML = head + (cands.length ? cands.map(c => { const on = offSet.has(c.code + '|' + day);
+        const ps = c.slots.filter(x => Math.floor(x / 10) === (new Date(day + 'T00:00:00Z').getUTCDay() || 7)).map(x => x % 10);
+        return `<div class="it" style="${on ? 'background:#FFF7ED;border-color:#FDBA74' : ''}"><div style="display:flex;gap:12px;align-items:center;min-width:0">
+          <span class="num" style="min-width:58px;font-weight:800;color:${ps.length ? 'var(--ink)' : 'var(--mute)'}">${ps.length ? rangesText(ps) : '–'}</span>
+          <div style="min-width:0"><div class="ti">${esc(c.title)} <span class="num" style="font-weight:500;font-size:12px;color:var(--sub)">${esc(c.code)}</span>${on ? ' <span style="color:#9A3412;font-size:12px;font-weight:700">휴강</span>' : ''}</div>
+          <div class="pt">${esc(slotsText(c.slots))}${c.start ? ` · ${fmt(c.start)}~${fmt(c.end)}` : ''}${c.n ? ` · ${c.n}명` : ''}</div></div></div>
+        <button type="button" class="${on ? 'btn-line' : 'btn-dark'}" data-off="${esc(c.code)}" data-on="${on ? 0 : 1}" ${!c.meets && !on ? 'title="이 날짜에는 수업이 없는 강의예요"' : ''}>${on ? '휴강 취소' : `${fmt(day)} 휴강`}</button></div>`; }).join('')
+      : `<span class="selinfo">${OFF.all || ($('offQ').value || '').trim() ? '찾는 강의가 없어요.' : '이 날짜에 수업이 있는 강의가 없어요. 강좌 목록을 올렸는지, 날짜가 맞는지 확인해 주세요.'}</span>`);
     $('offUpcoming').innerHTML = OFF.list.length ? OFF.list.map(o => `<div class="sitem" style="background:#FFF7ED;color:#9A3412"><span><b>${fmt(o.day)}</b> ${esc(o.title)} <span class="src">${esc(o.lkey)} · ${o.n}명${o.source === 'file' ? ' · 강좌 목록' : o.by ? ' · ' + esc(o.by) : ''}</span></span><button type="button" data-off="${esc(o.lkey)}" data-day="${o.day}" data-on="0">취소</button></div>`).join('')
       : '<span style="color:var(--sub);font-size:13px">예정된 휴강이 없어요.</span>';
   }
   $('offQ').addEventListener('input', () => { const L = $('offList'); if (L) renderOffs(); });
   $('offDay').addEventListener('change', renderOffs);
+  $('offList').addEventListener('change', (ev) => { if (ev.target.id === 'offAll') { OFF.all = ev.target.checked; renderOffs(); } });
   $('viewImp').addEventListener('click', async (ev) => {
     const b = ev.target.closest('[data-off]'); if (!b) return;
     const day = b.dataset.day || $('offDay').value; const on = b.dataset.on === '1';
