@@ -288,9 +288,11 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
     else if (S.who === 'err') box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">이름을 확인하지 못했어요 (저장은 할 수 있어요)</span>`;
     else { box.classList.add('ok'); box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">본인 좌석이 맞는지 확인해 주세요</span>`; }
   }
-  $('hallRow').onclick = (e) => { const b = e.target.closest('[data-h]'); if (!b) return; S.hall = b.dataset.h; S.let = null; S.num = null; S.who = undefined; touch(); renderAll(); };
-  $('letRow').onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; S.let = b.dataset.l; S.num = null; S.who = undefined; touch(); renderAll(); };
-  $('numRow').onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; S.num = b.dataset.n; S.who = undefined; touch(); renderAll(); lookup(); };
+  // 같은 버튼을 다시 누르면 해제 (그 아래 단계도 같이 해제)
+  const seatChanged = () => { S.who = undefined; S.whoSeq++; if (S.cs) { S.cs = { reason: S.cs.reason, state: 'needseat' }; } };
+  $('hallRow').onclick = (e) => { const b = e.target.closest('[data-h]'); if (!b) return; S.hall = S.hall === b.dataset.h ? null : b.dataset.h; S.let = null; S.num = null; seatChanged(); touch(); renderAll(); };
+  $('letRow').onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; S.let = S.let === b.dataset.l ? null : b.dataset.l; S.num = null; seatChanged(); touch(); renderAll(); };
+  $('numRow').onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; S.num = S.num === b.dataset.n ? null : b.dataset.n; seatChanged(); touch(); renderAll(); if (S.num) lookup(); };
   async function lookup() {
     const sn = seatNo(); if (!sn) return; const seq = ++S.whoSeq;
     try {
@@ -321,8 +323,9 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
   });
   document.querySelector('.form').addEventListener('click', (e) => {
     const c = e.target.closest('[data-r]'); if (!c) return;
-    const r = c.dataset.r; const was = S.reason;
+    const was = S.reason; const r = was === c.dataset.r ? null : c.dataset.r;   // 다시 누르면 해제
     S.reason = r; touch();
+    if (!r) { S.ret = null; S.cs = null; return renderAll(); }
     if (isEdu(r) && !isEdu(was)) S.ret = String(Math.max(1, curPeriod()));      // 교육점수는 지금 교시가 기본
     if (!isEdu(r) && isEdu(was)) S.ret = null;
     if (isEdu(r) && S.ret === '복귀안함') S.ret = null;
@@ -341,7 +344,7 @@ textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;bor
     const opts = PT.map(p => p[0]).concat(edu ? [] : ['복귀안함']);
     $('retRow').innerHTML = opts.map(v => `<button type="button" class="b ${S.ret === v ? 'on' : ''}" data-ret="${v}" aria-pressed="${S.ret === v}">${v === '복귀안함' ? '복귀안함' : v + '교시'}</button>`).join('');
   }
-  $('retRow').onclick = (e) => { const b = e.target.closest('[data-ret]'); if (!b) return; S.ret = b.dataset.ret; touch(); renderAll(); };
+  $('retRow').onclick = (e) => { const b = e.target.closest('[data-ret]'); if (!b) return; S.ret = S.ret === b.dataset.ret ? null : b.dataset.ret; touch(); renderAll(); };
 
   // ---------- 상담 (구글 시트) ----------
   async function loadCounsel() {
