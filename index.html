@@ -167,6 +167,48 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
 .btn-dark{min-height:44px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:700;padding:0 16px}
 .btn-line{min-height:44px;border:1px solid #D5D9E0;border-radius:12px;background:#fff;font-weight:700;padding:0 14px}
 
+/* 스케줄 관리 */
+.sch-wrap{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;align-items:start}
+.pick{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 120px);position:sticky;top:76px}
+.pick input,.pick select{height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px;background:#fff;width:100%}
+.pick-list{overflow:auto;display:flex;flex-direction:column;gap:2px;min-height:120px}
+.pick-list button{display:flex;justify-content:space-between;gap:8px;text-align:left;border:0;background:transparent;border-radius:9px;padding:9px 10px;min-height:42px}
+.pick-list button:hover{background:#F4F5F7}
+.pick-list button.on{background:var(--okSoft);color:var(--ok);font-weight:700}
+.pick-list .s{color:var(--sub);font-size:12px;font-weight:500}
+.wk-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;margin-bottom:10px}
+.wk-head .nm{font-size:20px;font-weight:800}
+.wk-head .meta{color:var(--sub);font-size:13px}
+.wk-nav{display:flex;align-items:center;gap:6px;font-weight:700}
+table.week{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;font-size:12px;table-layout:fixed}
+table.week th{background:#F4F5F7;color:var(--sub);font-weight:700;padding:7px 4px;border-bottom:1px solid var(--line);text-align:center}
+table.week th.today{background:var(--okSoft);color:var(--ok)}
+table.week th:first-child,table.week td:first-child{width:74px;position:sticky;left:0;background:#F4F5F7;z-index:1}
+table.week td{border-top:1px solid var(--line2);border-left:1px solid var(--line2);vertical-align:top;padding:3px;height:64px}
+table.week td:first-child{font-weight:700;text-align:center;vertical-align:middle;color:var(--ink)}
+table.week td:first-child span{display:block;font-size:10px;color:var(--sub);font-weight:500}
+table.week td.today{background:#F8FAFF}
+.slot{width:100%;height:100%;min-height:56px;border:1px dashed transparent;border-radius:8px;background:transparent;display:flex;flex-direction:column;gap:3px;padding:2px;align-items:stretch;text-align:left}
+.slot:hover{border-color:#C4C9D2;background:#FAFBFC}
+.slot .plus{color:var(--mute);font-size:11px;margin:auto;opacity:0}
+.slot:hover .plus,.slot:focus .plus{opacity:1}
+.chip{display:block;border-radius:7px;padding:3px 6px;font-size:11px;font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:0;text-align:left;width:100%}
+.chip.lecture{background:var(--schSoft);color:var(--schInk)}
+.chip.teacher{background:#DBEAFE;color:#1E3A8A}
+.chip.once{background:#FFEDD5;color:#9A3412}
+.chip small{display:block;font-weight:500;font-size:10px;opacity:.85}
+.legend2{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:8px}
+.legend2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.addbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;background:#F8F9FA;border:1px solid var(--line);border-radius:12px;padding:10px}
+.addbar select,.addbar input{height:42px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px;background:#fff}
+.addbar input[type=text]{flex:1;min-width:140px}
+.pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px;width:260px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.pop .t{font-weight:800;font-size:15px}
+.pop .m{color:var(--sub)}
+.pop .row{display:flex;gap:6px;justify-content:flex-end}
+.pop .del{min-height:40px;border:1px solid #F5C2A8;background:#FFF7F2;color:var(--late);border-radius:10px;font-weight:700;padding:0 12px}
+@media (max-width:899px){ .sch-wrap{grid-template-columns:minmax(0,1fr)} .pick{position:static;max-height:none} .pick-list{max-height:220px} }
+
 /* 알림 */
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:80;background:var(--ink);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:calc(100% - 24px);font-size:13px}
 #toast button{border:0;background:transparent;color:#93B4FF;font-weight:700;min-height:40px;padding:0 10px}
@@ -214,7 +256,8 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
       <nav class="tabs" aria-label="메뉴">
         <button type="button" id="tabAtt" class="on">출결</button>
         <button type="button" id="tabStat">등원 현황</button>
-        <button type="button" id="tabImp">스케줄 올리기</button>
+        <button type="button" id="tabSch">스케줄 관리</button>
+        <button type="button" id="tabImp">단과 올리기</button>
       </nav>
       <div class="datebox">
         <button type="button" class="icon-btn" id="prevDay" aria-label="전날">‹</button>
@@ -251,6 +294,19 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
     <div class="legend">
       <span>파랑 출석 · 주황 지각 · 흰 칸 결석 · 보라 점선 = 그 교시 스케줄</span>
       <span>이름을 누르면 메모와 스케줄을 볼 수 있어요.</span>
+    </div>
+  </main>
+
+  <main id="viewSch" class="hidden">
+    <div class="sch-wrap">
+      <aside class="pick" aria-label="학생 고르기">
+        <label class="sr" for="schQ">학생 검색</label>
+        <input type="search" id="schQ" placeholder="이름 · 좌석 · 학번">
+        <label class="sr" for="schT">담임</label>
+        <select id="schT"><option value="">담임 전체</option></select>
+        <div class="pick-list" id="schList"></div>
+      </aside>
+      <section class="panel" id="schMain" aria-live="polite"></section>
     </div>
   </main>
 
@@ -487,7 +543,7 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'sch') renderSchPick();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -677,6 +733,125 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
   });
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('detail').classList.contains('hidden')) closeDetail(); });
 
+  // ---------- 스케줄 관리 (학생 한 명의 주간표) ----------
+  const SCH = { id: null, week: null, data: null, busy: false };
+  const WD7 = ['월', '화', '수', '목', '금', '토', '일'];
+  function mondayOf(d) { const t = new Date(d + 'T00:00:00Z'); const w = t.getUTCDay() || 7; return addDays(d, 1 - w); }
+  function shortDate(d) { const t = new Date(d + 'T00:00:00Z'); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}`; }
+  function renderSchPick() {
+    const q = $('schQ').value.trim(); const qU = q.toUpperCase(); const t = $('schT').value;
+    const live = S.rows.filter(r => !r.empty);
+    const tSel = $('schT'); const teachers = [...new Set(live.map(r => r.teacher).filter(Boolean))].sort();
+    if (tSel.options.length !== teachers.length + 1) tSel.innerHTML = '<option value="">담임 전체</option>' + teachers.map(x => `<option ${x === t ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    const list = live.filter(r => (!t || r.teacher === t) && (!q || r.name.includes(q) || r.seat.includes(qU) || String(r.id).includes(q)));
+    $('schList').innerHTML = list.length ? list.map(r => `<button type="button" data-sid="${esc(r.id)}" class="${r.id === SCH.id ? 'on' : ''}"><span>${esc(r.name)}</span><span class="s">${esc(r.seat)} · ${esc(r.teacher)}</span></button>`).join('')
+      : '<p style="color:var(--sub);font-size:13px;padding:8px">찾는 학생이 없어요.</p>';
+    if (!SCH.id) $('schMain').innerHTML = '<div class="empty-note" style="border:0">왼쪽에서 학생을 고르면 일주일 스케줄이 나와요.</div>';
+  }
+  $('schQ').oninput = renderSchPick; $('schT').onchange = renderSchPick;
+  $('schList').onclick = (ev) => { const b = ev.target.closest('[data-sid]'); if (!b) return; SCH.id = b.dataset.sid; SCH.week = SCH.week || mondayOf(S.today); renderSchPick(); loadWeek(); };
+  async function loadWeek() {
+    if (!SCH.id) return;
+    $('schMain').setAttribute('aria-busy', 'true');
+    try {
+      const { data, error } = await db.rpc('work_student_week', { p_student_id: SCH.id, p_week_start: SCH.week });
+      if (error) throw error;
+      SCH.data = data; SCH.week = data.week_start; renderWeek();
+    } catch (e) { $('schMain').innerHTML = `<p class="msg-err">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '불러오지 못했어요.'))}</p>`; }
+    finally { $('schMain').removeAttribute('aria-busy'); }
+  }
+  function weekItems(dayIdx, per) {
+    const d = addDays(SCH.week, dayIdx); const out = [];
+    (SCH.data.regular || []).forEach(x => { if (x.weekday === dayIdx + 1 && x.period === per && x.valid_from <= d && (!x.valid_to || x.valid_to >= d)) out.push({ ...x, kind: 'regular' }); });
+    (SCH.data.once || []).forEach(x => { if (x.day === d && x.period === per) out.push({ ...x, kind: 'once', source: 'once' }); });
+    return out;
+  }
+  function renderWeek() {
+    const r = S.rows.find(x => x.id === SCH.id) || {};
+    const today = SCH.data.today;
+    const days = WD7.map((w, i) => ({ w, d: addDays(SCH.week, i) }));
+    const label = { lecture: '단과', teacher: '매주', once: '이번만' };
+    $('schMain').innerHTML = `
+      <div class="wk-head">
+        <div><div class="nm">${esc(r.name || SCH.id)}</div><div class="meta num">${esc(r.seat || '')} · ${esc(SCH.id)} · ${esc(r.teacher || '')} · ${esc(r.grade || '')}</div></div>
+        <div class="wk-nav"><button type="button" class="icon-btn" id="wkPrev" aria-label="지난주">‹</button>
+          <span>${shortDate(SCH.week)} ~ ${shortDate(addDays(SCH.week, 6))}</span>
+          <button type="button" class="icon-btn" id="wkNext" aria-label="다음 주">›</button>
+          ${mondayOf(today) !== SCH.week ? '<button type="button" class="today-btn" id="wkNow">이번 주</button>' : ''}</div>
+      </div>
+      <div style="overflow-x:auto"><table class="week"><thead><tr><th>교시</th>${days.map(x => `<th class="${x.d === today ? 'today' : ''}">${x.w}<br><span style="font-weight:500">${shortDate(x.d)}</span></th>`).join('')}</tr></thead>
+      <tbody>${PT.map((p, pi) => `<tr><td>${p[0]}교시<span>${p[1]}</span></td>${days.map((x, di) => {
+        const items = weekItems(di, pi + 1);
+        return `<td class="${x.d === today ? 'today' : ''}"><div class="slot" role="group" aria-label="${x.w}요일 ${p[0]}교시">${items.map(it =>
+          `<button type="button" class="chip ${it.source}" data-kind="${it.kind}" data-id="${it.id}" aria-label="${x.w}요일 ${p[0]}교시 ${esc(it.title)} ${label[it.source]}">${esc(it.title)}<small>${label[it.source]}</small></button>`).join('')}
+          <button type="button" class="chip" style="background:transparent;color:var(--mute);font-weight:500;margin-top:auto" data-add="${di}|${pi + 1}" aria-label="${x.w}요일 ${p[0]}교시에 추가">+ 추가</button></div></td>`;
+      }).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="legend2"><span><i style="background:var(--schSoft)"></i>단과 (엑셀로 들어옴)</span><span><i style="background:#DBEAFE"></i>매주 반복 (담임 입력)</span><span><i style="background:#FFEDD5"></i>이번만 (그 날짜만)</span></div>
+      <form class="addbar" id="addForm">
+        <b style="font-size:13px">추가</b>
+        <select id="aDay" aria-label="요일">${days.map((x, i) => `<option value="${i}">${x.w} (${shortDate(x.d)})</option>`).join('')}</select>
+        <select id="aFrom" aria-label="시작 교시">${PT.map(p => `<option value="${p[0]}">${p[0]}교시</option>`).join('')}</select>
+        <select id="aTo" aria-label="끝 교시">${PT.map(p => `<option value="${p[0]}">~${p[0]}교시</option>`).join('')}</select>
+        <input type="text" id="aTitle" maxlength="40" placeholder="예: 수학과외, 병원" aria-label="스케줄 이름">
+        <select id="aRep" aria-label="반복"><option value="weekly">매주 반복</option><option value="once">이 날짜만</option></select>
+        <button type="submit" class="btn-dark">추가</button>
+      </form>`;
+  }
+  $('schMain').addEventListener('click', (ev) => {
+    if (ev.target.closest('#wkPrev')) { SCH.week = addDays(SCH.week, -7); return loadWeek(); }
+    if (ev.target.closest('#wkNext')) { SCH.week = addDays(SCH.week, 7); return loadWeek(); }
+    if (ev.target.closest('#wkNow')) { SCH.week = mondayOf(SCH.data.today); return loadWeek(); }
+    const add = ev.target.closest('[data-add]');
+    if (add) { const [di, per] = add.dataset.add.split('|'); $('aDay').value = di; $('aFrom').value = per; $('aTo').value = per; $('aTitle').focus(); $('addForm').scrollIntoView({ block: 'nearest' }); return; }
+    const chip = ev.target.closest('.chip[data-kind]');
+    if (chip) return openChipPop(chip);
+  });
+  $('schMain').addEventListener('submit', async (ev) => {
+    if (ev.target.id !== 'addForm') return; ev.preventDefault();
+    const di = +$('aDay').value, from = +$('aFrom').value, to = +$('aTo').value, title = $('aTitle').value.trim(), rep = $('aRep').value;
+    if (!title) { $('aTitle').focus(); return toast('스케줄 이름을 적어 주세요.', { err: true }); }
+    if (to < from) return toast('끝 교시가 시작 교시보다 앞이에요.', { err: true });
+    const day = addDays(SCH.week, di);
+    if (rep === 'once' && day < SCH.data.today) return toast('지난 날짜에는 "이 날짜만" 스케줄을 넣을 수 없어요.', { err: true });
+    try {
+      const { error } = await db.rpc('work_add_sched', { p_student_id: SCH.id, p_title: title, p_period_from: from, p_period_to: to, p_day: rep === 'once' ? day : null, p_weekday: rep === 'once' ? null : di + 1 });
+      if (error) throw error;
+      toast(rep === 'once' ? `${shortDate(day)} ${from}${to > from ? '~' + to : ''}교시에 추가했어요.` : `매주 ${WD7[di]}요일 ${from}${to > from ? '~' + to : ''}교시에 추가했어요.` + (day < SCH.data.today ? ' 이번 주는 이미 지나서 다음 주부터 보여요.' : ''));
+      await loadWeek(); S.data && load();
+    } catch (e) { toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '추가하지 못했어요.'), { err: true }); }
+  });
+  function closePop() { document.querySelectorAll('.pop').forEach(x => x.remove()); }
+  function openChipPop(chip) {
+    closePop();
+    const kind = chip.dataset.kind, id = +chip.dataset.id;
+    const it = kind === 'once' ? SCH.data.once.find(x => x.id === id) : SCH.data.regular.find(x => x.id === id);
+    if (!it) return;
+    const src = kind === 'once' ? 'once' : it.source;
+    const desc = src === 'lecture' ? `단과 엑셀로 들어온 수업이에요. ${it.valid_from}부터` : src === 'teacher' ? `매주 반복 · ${it.valid_from}부터${it.by ? ' · ' + it.by : ''}` : `${it.day} 하루만${it.by ? ' · ' + it.by : ''}`;
+    const pop = document.createElement('div'); pop.className = 'pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', it.title);
+    pop.innerHTML = `<div class="t">${esc(it.title)}</div><div class="m">${esc(desc)}</div>
+      ${src === 'lecture' ? '<div class="m">단과는 "단과 올리기"에서 엑셀을 다시 올려서 바꿔요.</div><div class="row"><button type="button" class="btn-line" data-pclose>닫기</button></div>'
+        : `<div class="row"><button type="button" class="btn-line" data-pclose>닫기</button><button type="button" class="del" data-pdel>${src === 'teacher' ? '오늘부터 빼기' : '지우기'}</button></div>`}`;
+    document.body.appendChild(pop);
+    const rc = chip.getBoundingClientRect();
+    pop.style.left = Math.min(window.innerWidth - 272, Math.max(8, rc.left)) + 'px';
+    pop.style.top = (rc.bottom + 6 + pop.offsetHeight > window.innerHeight ? Math.max(8, rc.top - pop.offsetHeight - 6) : rc.bottom + 6) + 'px';
+    pop.querySelector('[data-pclose]').focus();
+    pop.addEventListener('click', async (ev) => {
+      if (ev.target.closest('[data-pclose]')) return closePop();
+      if (!ev.target.closest('[data-pdel]')) return;
+      try {
+        // 매주 스케줄은 같은 이름·같은 요일의 이어진 교시를 한꺼번에 뺌
+        const ids = kind === 'once' ? [id] : SCH.data.regular.filter(x => x.source === 'teacher' && x.weekday === it.weekday && x.title === it.title && (!x.valid_to)).map(x => x.id);
+        for (const x of ids) { const { error } = await db.rpc('work_delete_sched', { p_kind: kind, p_id: x }); if (error) throw error; }
+        closePop(); toast(kind === 'once' ? '스케줄을 지웠어요.' : `매주 ${WD7[it.weekday - 1]}요일 '${it.title}'을(를) 오늘부터 뺐어요.`);
+        await loadWeek(); S.data && load();
+      } catch (e) { toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '지우지 못했어요.'), { err: true }); }
+    });
+  }
+  document.addEventListener('click', (ev) => { if (!ev.target.closest('.pop') && !ev.target.closest('.chip[data-kind]')) closePop(); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closePop(); });
+
   // ---------- 단과 엑셀 올리기 ----------
   //  수강기호 예: 422D3[11] → D=목, 3=저녁(7~8교시) / (A)146BD → 화·목, 시간대는 추정
   const DAYS = 'ABCDEFG';                       // A=월 … G=일
@@ -820,7 +995,7 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['stat', 'tabStat', 'viewStat'], ['imp', 'tabImp', 'viewImp']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['stat', 'tabStat', 'viewStat'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     render();
@@ -828,6 +1003,7 @@ table.stat td:first-child,table.stat th:first-child{text-align:left}
   $('tabAtt').onclick = () => setTab('att');
   $('tabStat').onclick = () => setTab('stat');
   $('tabImp').onclick = () => setTab('imp');
+  $('tabSch').onclick = () => setTab('sch');
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
