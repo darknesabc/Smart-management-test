@@ -303,6 +303,7 @@ table.week td.today{background:#F8FAFF}
         <button type="button" id="tabStat">등원 현황</button>
         <button type="button" id="tabSch">스케줄 관리</button>
         <button type="button" id="tabImp">단과 관리</button>
+        <button type="button" id="tabKio">태블릿 기록</button>
       </nav>
       <div class="datebox">
         <button type="button" class="icon-btn" id="prevDay" aria-label="전날">‹</button>
@@ -387,6 +388,15 @@ table.week td.today{background:#F8FAFF}
       <button type="button" class="btn-line" id="absCopy" style="margin-left:auto">사유 없음 명단 복사</button>
     </div>
     <div id="absList"></div>
+  </main>
+
+  <main id="viewKio" class="hidden">
+    <div class="toolbar">
+      <label class="ctl">보기 <select id="kioKind"><option value="">전체</option><option value="edu">교육점수만</option><option value="move">이동만</option></select></label>
+      <label class="chk"><input type="checkbox" id="kioDel"> 지운 기록도 보기</label>
+      <span style="margin-left:auto;font-size:13px;color:var(--sub)">학생 태블릿에서 넣은 이동 · 교육점수예요. 잘못 넣은 기록은 지우면 관리자 페이지에서도 빠져요.</span>
+    </div>
+    <div class="tbox" id="kioBox"></div>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -498,6 +508,7 @@ table.week td.today{background:#F8FAFF}
       if (S.period === null || first) S.period = isToday() ? currentPeriodIdx() : 0;
       ingest(data);
       await loadExtras();
+      if (S.tab === 'kio') loadKio();
       setNet(false);
       render();
     } catch (e) {
@@ -655,7 +666,7 @@ table.week td.today{background:#F8FAFF}
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -1426,7 +1437,7 @@ table.week td.today{background:#F8FAFF}
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     render();
@@ -1436,6 +1447,39 @@ table.week td.today{background:#F8FAFF}
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
   $('tabSch').onclick = () => setTab('sch');
   $('tabAbs').onclick = () => setTab('abs');
+  $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
+
+  // ---------- 태블릿 기록 (이동일지 · 교육점수) ----------
+  S.kio = null;
+  async function loadKio() {
+    const key = S.day + '|' + S.floor; S.kioKey = key;
+    $('kioBox').innerHTML = '<div style="padding:24px;color:var(--mute)">불러오는 중…</div>';
+    try {
+      const { data, error } = await db.rpc('work_kiosk_list', { p_day: S.day, p_floor: S.floor });
+      if (error) throw error;
+      if (S.kioKey !== key) return;
+      S.kio = data || []; renderKio();
+    } catch (e) { $('kioBox').innerHTML = `<div style="padding:24px;color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
+  }
+  function renderKio() {
+    if (!S.kio) return;
+    const k = $('kioKind').value, showDel = $('kioDel').checked;
+    const rows = S.kio.filter(x => (!k || x.kind === k) && (showDel || !x.deleted));
+    $('kioBox').innerHTML = rows.length ? `<table class="sheet"><thead><tr><th>시간</th><th>좌석</th><th>이름</th><th>담임</th><th>구분</th><th>사유</th><th>교시</th><th></th></tr></thead><tbody>${rows.map(x => `
+      <tr style="${x.deleted ? 'opacity:.45;text-decoration:line-through' : ''}"><td>${esc(x.time)}</td><td>${esc(x.seat)}</td><td><b>${esc(x.name || '')}</b> <span style="color:var(--mute)">${esc(x.student_id)}</span></td><td>${esc(x.teacher || '')}</td>
+      <td>${x.kind === 'edu' ? '<b style="color:var(--late)">교육점수</b>' : '이동'}</td><td>${esc(x.reason)}</td><td>${esc(x.ret === '복귀안함' ? '복귀안함' : x.ret + '교시')}</td>
+      <td>${x.deleted ? `<span style="font-size:12px">지움 · ${esc((x.deleted_by || '').split('@')[0])}</span>` : `<button type="button" class="btn-line" data-kdel="${esc(x.client_id)}">지우기</button>`}</td></tr>`).join('')}</tbody></table>`
+      : '<div style="padding:24px;color:var(--mute)">이 날 태블릿 기록이 없어요.</div>';
+  }
+  $('kioKind').onchange = renderKio; $('kioDel').onchange = renderKio;
+  $('kioBox').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-kdel]'); if (!b) return;
+    const x = (S.kio || []).find(r => r.client_id === b.dataset.kdel); if (!x) return;
+    if (!confirm(`${x.seat} ${x.name || ''} · ${x.reason} 기록을 지울까요?`)) return;
+    b.disabled = true;
+    try { const { error } = await db.rpc('work_kiosk_delete', { p_client_id: x.client_id }); if (error) throw error; await loadKio(); }
+    catch (err) { b.disabled = false; alert(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '지우지 못했어요.')); }
+  });
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
