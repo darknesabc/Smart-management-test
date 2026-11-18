@@ -241,6 +241,24 @@ table.week td.today{background:#F8FAFF}
 .rtag.sch{background:var(--schSoft);color:var(--schInk)}
 .rtag.survey{background:#DCFCE7;color:#14532D}
 .rtag.move{background:#E0F2FE;color:#0C4A6E}
+.rtag.att{background:var(--okSoft);color:var(--ok)}
+.rtag.tch{background:#FEF3C7;color:#92400E}
+.rtag.out{background:#F1F2F4;color:var(--sub)}
+.rtag.sent{background:#F1F2F4;color:var(--sub)}
+.abs-mode{display:inline-flex;margin-bottom:12px;align-self:flex-start;width:max-content}
+#smsView .toolbar{margin-bottom:12px}
+.abs-mode button{min-height:40px;padding:0 18px;font-size:14px}
+.sms-note{font-size:13px;color:var(--sub);margin:0 0 10px;line-height:1.5}
+.sms-note.warn{background:#FEF3C7;color:#78350F;border-radius:10px;padding:8px 12px}
+.sms-acts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.sms-sent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--okSoft);color:var(--ok);border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:14px;font-weight:600}
+.sms-sent button{border:0;background:#fff;border-radius:8px;min-height:34px;padding:0 10px;color:var(--sub);font-weight:700}
+.ph{font-variant-numeric:tabular-nums;font-weight:700;min-width:120px}
+.ph.no{color:var(--late);font-weight:600}
+.sms-rd{display:flex;gap:8px;flex-wrap:wrap}
+.sms-rd label{flex:1;min-width:90px;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border:1px solid #D5D9E0;border-radius:12px;font-weight:700;font-size:15px}
+.sms-rd input{width:18px;height:18px}
+.sms-in{height:44px;border:1px solid #D5D9E0;border-radius:12px;padding:0 12px;font-size:15px;width:100%}
 .abs-sec{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
 .abs-sec h3{margin:0;padding:12px 14px;font-size:15px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line2)}
 .abs-sec h3 small{font-weight:500;color:var(--sub);font-size:12px}
@@ -387,6 +405,19 @@ table.week td.today{background:#F8FAFF}
   </main>
 
   <main id="viewAbs" class="hidden">
+    <div class="seg abs-mode" id="absMode" role="tablist" aria-label="미등원 보기">
+      <button type="button" data-am="list" class="on" role="tab">결석 현황</button>
+      <button type="button" data-am="sms" role="tab">문자 명단</button>
+    </div>
+    <div id="smsView" class="hidden">
+      <div class="toolbar">
+        <div class="seg" id="smsRound" role="group" aria-label="문자 차수"></div>
+        <label class="ctl">담임 <select id="smsT"><option value="">전체</option></select></label>
+        <label class="chk"><input type="checkbox" id="smsOut"> 퇴원예정도 보내기</label>
+      </div>
+      <div id="smsBody"></div>
+    </div>
+    <div id="absListView">
     <div class="kpis" id="absKpis"></div>
     <div class="toolbar">
       <div class="pills" id="absPills" role="group" aria-label="교시 선택"></div>
@@ -395,7 +426,9 @@ table.week td.today{background:#F8FAFF}
       <button type="button" class="btn-line" id="absCopy" style="margin-left:auto">사유 없음 명단 복사</button>
     </div>
     <div id="absList"></div>
+    </div>
   </main>
+<div id="smsDlg" class="dim hidden" role="dialog" aria-modal="true"></div>
 
   <main id="viewKio" class="hidden">
     <div class="toolbar">
@@ -541,6 +574,7 @@ table.week td.today{background:#F8FAFF}
       ingest(data);
       await loadExtras();
       if (S.tab === 'kio') loadKio();
+      if (S.tab === 'abs' && S.absMode === 'sms') loadSms();
       setNet(false);
       render();
     } catch (e) {
@@ -808,6 +842,7 @@ table.week td.today{background:#F8FAFF}
     return { P, open, live, absent, g };
   }
   function renderAbs() {
+    if (S.absMode === 'sms') return renderSms();
     const { P, open, live, absent, g } = absGroups();
     const cur = isToday() ? currentPeriodIdx() : -1;
     const tSel = $('absT'); const tv = tSel.value; const teachers = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
@@ -839,6 +874,146 @@ table.week td.today{background:#F8FAFF}
       ${sec('sch', '스케줄', '단과 · 담임 입력 스케줄이 있는 학생', 'var(--schInk)')}</div>`
       : `<div class="empty-note">${P + 1}교시 결석인 학생이 없어요.</div>`;
   }
+  // ---------- 미등원 문자 명단 ----------
+  //  1교시: 1교시 결석 − 이동·설문·스케줄 − 2교시 출석 − 담임 제외
+  //  4·7교시: 그 교시 결석 − 이동·설문·스케줄 − 담임 제외
+  S.absMode = 'list'; S.sms = null;
+  const ROUNDS = [1, 4, 7];
+  function defaultRound() { const h = new Date(serverNow() + 9 * 3600e3).getUTCHours(); return h < 11 ? 1 : h < 16 ? 4 : 7; }
+  function setAbsMode(m) {
+    S.absMode = m;
+    $('absMode').querySelectorAll('[data-am]').forEach(b => b.classList.toggle('on', b.dataset.am === m));
+    $('smsView').classList.toggle('hidden', m !== 'sms'); $('absListView').classList.toggle('hidden', m === 'sms');
+    if (m === 'sms') { if (!S.smsR) S.smsR = defaultRound(); loadSms(); }
+    renderAbs();
+  }
+  $('absMode').onclick = (e) => { const b = e.target.closest('[data-am]'); if (b) setAbsMode(b.dataset.am); };
+  async function loadSms() {
+    const key = S.day + '|' + S.floor; if (S.smsKey !== key) S.sms = null; S.smsKey = key; S.smsAt = Date.now();
+    try {
+      const { data, error } = await db.rpc('work_sms_data', { p_day: S.day, p_floor: S.floor });
+      if (error) throw error;
+      if (S.smsKey !== key) return;
+      S.sms = data; if (S.tab === 'abs' && S.absMode === 'sms') renderSms();
+    } catch (e) { if (S.smsKey === key && !S.sms) $('smsBody').innerHTML = `<div class="empty-note" style="color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
+  }
+  function smsCompute() {
+    const R = S.smsR, P = R - 1, open = lastOpenIdx(), t = $('smsT').value, out = $('smsOut').checked;
+    const ex = {}; ((S.sms && S.sms.exclude) || []).forEach(e => { ex[e.student_id] = e; });
+    const sent = ((S.sms && S.sms.sent) || []);
+    const live = S.rows.filter(r => !r.empty && (!t || r.teacher === t));
+    if (P > open) return { R, P, open, notYet: true, targets: [], skipped: [], sent, ex };
+    const targets = [], skipped = [];
+    live.filter(r => codeOf(r, P) === '3').forEach(r => {
+      const why = [...reasonsOf(r, P)];
+      if (R === 1 && open >= 1 && codeOf(r, 1) !== '3') why.push({ type: 'att', text: '2교시 출석' });
+      const e = ex[r.id];
+      if (e && (e.rounds || []).includes(R)) why.push({ type: 'tch', text: `담임 제외${e.reason ? ' · ' + e.reason : ''} (${e.by || ''})`, ex: true });
+      if (!out && r.status === '퇴원예정') why.push({ type: 'out', text: '퇴원예정' });
+      const before = sent.filter(x => x.round < R && (x.ids || []).includes(r.id)).map(x => x.round);
+      (why.length ? skipped : targets).push({ r, why, before: [...new Set(before)] });
+    });
+    return { R, P, open, targets, skipped, sent, ex };
+  }
+  const phoneOf = (r) => ((S.sms && S.sms.phones) || {})[r.id] || '';
+  function renderSms() {
+    const tSel = $('smsT'); const tv = tSel.value; const teachers = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
+    tSel.innerHTML = '<option value="">전체</option>' + teachers.map(x => `<option ${x === tv ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    $('smsRound').innerHTML = ROUNDS.map(n => `<button type="button" data-sr="${n}" class="${S.smsR === n ? 'on' : ''}" aria-pressed="${S.smsR === n}">${n}교시 문자</button>`).join('');
+    if (!S.sms) { $('smsBody').innerHTML = '<div class="empty-note">불러오는 중…</div>'; return; }
+    const c = smsCompute();
+    if (c.notYet) { $('smsBody').innerHTML = `<div class="empty-note">${c.R}교시는 아직 시작 전이에요.</div>`; return; }
+    const noPhone = c.targets.filter(x => !phoneOf(x.r)).length;
+    const mine = c.sent.filter(x => x.round === c.R);
+    const rule = c.R === 1 ? '1교시 결석 중에서 이동 · 설문 · 스케줄 · 2교시 출석 · 담임 제외를 뺀 학생이에요.' : `${c.R}교시 결석 중에서 이동 · 설문 · 스케줄 · 담임 제외를 뺀 학생이에요.`;
+    const warn = c.R === 1 && c.open < 1 ? '<p class="sms-note warn">아직 2교시 전이라 "2교시 출석" 제외가 반영되지 않았어요. 2교시 출석 체크 뒤에 명단을 뽑아 주세요.</p>' : '';
+    const row = (x, skip) => `<div class="arow2">
+        <span class="num" style="width:64px;font-weight:700">${esc(x.r.seat)}</span>
+        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(x.r.id)}">${esc(x.r.name)}</button></b> ${x.r.status === '퇴원예정' ? '<span class="st out">퇴원예정</span>' : ''}
+          <div class="meta2 num">${esc(x.r.id)} · ${esc(x.r.teacher)}</div>
+          ${(x.why.length || x.before.length) ? `<div>${tagsHtml(x.why)}${x.before.map(n => `<span class="rtag sent">${n}교시 문자 보냄</span>`).join('')}</div>` : ''}</div>
+        <span class="ph num ${phoneOf(x.r) ? '' : 'no'}">${phoneOf(x.r) ? esc(phoneOf(x.r)) : '연락처 없음'}</span>
+        ${skip ? (x.why.some(w => w.ex) ? `<button type="button" class="btn-line" data-smsx="${esc(x.r.id)}">제외 바꾸기</button>` : '<span style="width:96px"></span>')
+               : `<button type="button" class="btn-line" data-smsx="${esc(x.r.id)}">담임 제외</button>`}
+      </div>`;
+    $('smsBody').innerHTML = `
+      <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="kpi"><div class="l">${c.R}교시 문자 대상</div><div class="v" style="color:var(--late)">${c.targets.length}명</div></div>
+        <div class="kpi"><div class="l">연락처 없음</div><div class="v" style="color:${noPhone ? 'var(--late)' : 'var(--mute)'}">${noPhone}명</div></div>
+        <div class="kpi"><div class="l">결석이지만 제외</div><div class="v" style="color:var(--sub)">${c.skipped.length}명</div></div>
+      </div>
+      <p class="sms-note" style="margin-top:10px">${rule} 화면을 띄워 둔 사이 출석 · 설문 · 이동이 들어오면 명단에서 바로 빠져요.</p>${warn}
+      ${mine.map(m => `<div class="sms-sent">✓ ${esc(m.at)} ${esc(m.by)} 선생님이 ${c.R}교시 문자 발송 완료로 표시했어요 (${(m.ids || []).length}명)<button type="button" data-unsent="${m.id}">표시 취소</button></div>`).join('')}
+      <div class="sms-acts">
+        <button type="button" class="btn-line" data-sa="phones">연락처만 복사</button>
+        <button type="button" class="btn-line" data-sa="list">명단 복사</button>
+        <button type="button" class="btn-line" data-sa="csv">엑셀 저장</button>
+        <button type="button" class="btn-dark" data-sa="sent" style="margin-left:auto" ${c.targets.length ? '' : 'disabled'}>발송 완료로 표시</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <section class="abs-sec"><h3><span style="color:var(--late)">문자 보낼 학생 ${c.targets.length}명</span><small>학부모 연락처로 보내요</small></h3>
+          ${c.targets.length ? c.targets.map(x => row(x, false)).join('') : '<div style="padding:20px;color:var(--sub)">보낼 학생이 없어요.</div>'}</section>
+        ${c.skipped.length ? `<section class="abs-sec"><h3><span style="color:var(--sub)">결석이지만 빠진 학생 ${c.skipped.length}명</span><small>빠진 이유</small></h3>${c.skipped.map(x => row(x, true)).join('')}</section>` : ''}
+      </div>`;
+  }
+  $('smsRound').onclick = (e) => { const b = e.target.closest('[data-sr]'); if (!b) return; S.smsR = +b.dataset.sr; renderSms(); };
+  $('smsT').onchange = renderSms; $('smsOut').onchange = renderSms;
+  async function copyText(text, msg) {
+    try { await navigator.clipboard.writeText(text); toast(msg); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast(msg); } catch (x) { toast('복사하지 못했어요.', { err: true }); } ta.remove(); }
+  }
+  $('smsBody').addEventListener('click', async (e) => {
+    const o = e.target.closest('[data-open]'); if (o) return openDetail(o.dataset.open, S.smsR - 1);
+    const x = e.target.closest('[data-smsx]'); if (x) return openSmsEx(x.dataset.smsx);
+    const u = e.target.closest('[data-unsent]');
+    if (u) { if (!confirm('발송 완료 표시를 취소할까요?')) return; try { const { error } = await db.rpc('work_sms_unmark_sent', { p_id: +u.dataset.unsent }); if (error) throw error; } catch (err) { toast(err.message || '취소하지 못했어요.', { err: true }); } return loadSms(); }
+    const a = e.target.closest('[data-sa]'); if (!a) return;
+    const c = smsCompute(); const T = c.targets;
+    if (a.dataset.sa === 'phones') {
+      const ph = T.map(x => phoneOf(x.r)).filter(Boolean);
+      return copyText(ph.join('\n'), `연락처 ${ph.length}개를 복사했어요.${T.length > ph.length ? ` (연락처 없는 ${T.length - ph.length}명 제외)` : ''}`);
+    }
+    if (a.dataset.sa === 'list') return copyText(`${dayLabel(S.day)} ${c.R}교시 미등원 문자 ${T.length}명\n` + T.map(x => `${x.r.seat} ${x.r.name} (${x.r.teacher}) ${phoneOf(x.r) || '연락처 없음'}`).join('\n'), '명단을 복사했어요.');
+    if (a.dataset.sa === 'csv') {
+      const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const csv = '﻿' + ['좌석,이름,학번,담임,학부모 연락처'].concat(T.map(x => [x.r.seat, x.r.name, x.r.id, x.r.teacher, phoneOf(x.r)].map(q).join(','))).join('\r\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const l = document.createElement('a'); l.href = url; l.download = `미등원문자_${S.floor}층_${S.day}_${c.R}교시.csv`; document.body.appendChild(l); l.click(); l.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000); return;
+    }
+    if (a.dataset.sa === 'sent') {
+      if (!confirm(`${c.R}교시 문자 ${T.length}명 발송 완료로 표시할까요?`)) return;
+      a.disabled = true;
+      try { const { error } = await db.rpc('work_sms_mark_sent', { p_day: S.day, p_floor: S.floor, p_round: c.R, p_ids: T.map(x => x.r.id) }); if (error) throw error; toast('발송 완료로 표시했어요.'); }
+      catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '표시하지 못했어요.'), { err: true }); }
+      loadSms();
+    }
+  });
+  function openSmsEx(id) {
+    const r = S.rows.find(x => x.id === id); if (!r) return;
+    const e = ((S.sms && S.sms.exclude) || []).find(x => x.student_id === id);
+    const on = e ? e.rounds : ROUNDS;
+    const d = $('smsDlg');
+    d.innerHTML = `<div class="sheet-box"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">${esc(r.seat)} · ${esc(r.teacher)} · ${esc(dayLabel(S.day))}</div><div class="t2">${esc(r.name)} 문자 제외</div></div></div>
+      <div class="sh-sec"><div class="h">어느 문자에서 뺄까요?</div>
+        <div class="sms-rd">${ROUNDS.map(n => `<label><input type="checkbox" value="${n}" ${on.includes(n) ? 'checked' : ''}> ${n}교시</label>`).join('')}</div></div>
+      <div class="sh-sec"><div class="h">사유 (선택)</div><input class="sms-in" id="smsReason" maxlength="60" placeholder="예: 학부모님과 통화함, 병원" value="${esc(e?.reason || '')}"></div>
+      <div style="display:flex;gap:8px">${e ? '<button type="button" class="btn-line" data-exoff style="color:var(--late)">제외 취소</button>' : ''}
+        <button type="button" class="btn-line" data-exclose style="margin-left:auto">닫기</button><button type="button" class="btn-dark" data-exsave>저장</button></div></div>`;
+    d.classList.remove('hidden');
+    const close = () => { d.classList.add('hidden'); d.innerHTML = ''; };
+    const save = async (rounds) => {
+      try { const { error } = await db.rpc('work_sms_set_exclude', { p_student_id: id, p_day: S.day, p_rounds: rounds, p_reason: $('smsReason').value }); if (error) throw error; close(); toast(rounds.length ? '문자에서 뺐어요.' : '제외를 취소했어요.'); loadSms(); }
+      catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
+    };
+    d.onclick = (ev) => {
+      if (ev.target === d || ev.target.closest('[data-exclose]')) return close();
+      if (ev.target.closest('[data-exoff]')) return save([]);
+      if (ev.target.closest('[data-exsave]')) { const rs = [...d.querySelectorAll('.sms-rd input:checked')].map(i => +i.value); if (!rs.length) return toast('차수를 하나 이상 골라 주세요.', { err: true }); save(rs); }
+    };
+  }
+
   $('absPills').onclick = (ev) => { const b = ev.target.closest('[data-ap]'); if (!b) return; S.absP = +b.dataset.ap; renderAbs(); };
   $('absT').onchange = renderAbs; $('absAllDay').onchange = renderAbs;
   $('absKpis').onclick = (ev) => { const b = ev.target.closest('[data-af]'); if (!b || b.disabled) return; const k = b.dataset.af; S.absF = S.absF === k ? '' : k; renderAbs(); };
@@ -1482,7 +1657,7 @@ table.week td.today{background:#F8FAFF}
   $('tabStat').onclick = () => setTab('stat');
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
   $('tabSch').onclick = () => setTab('sch');
-  $('tabAbs').onclick = () => setTab('abs');
+  $('tabAbs').onclick = () => { setTab('abs'); if (S.absMode === 'sms') loadSms(); };
   $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
 
   // ---------- 태블릿 기록 (이동일지 · 교육점수) ----------
@@ -1550,6 +1725,7 @@ table.week td.today{background:#F8FAFF}
     if (document.visibilityState !== 'visible') return;
     if (queue.length) flushQueue();
     if (S.tab === 'kio' && Date.now() - (S.kioAt || 0) > 30e3) loadKio();   // 태블릿 기록: 30초마다 새로
+    if (S.tab === 'abs' && S.absMode === 'sms' && Date.now() - (S.smsAt || 0) > 60e3) loadSms();   // 문자 명단: 담임 제외 · 발송 기록 1분마다
     poll();
   }, 20000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.data) { S.extrasAt = 0; poll(); } });
