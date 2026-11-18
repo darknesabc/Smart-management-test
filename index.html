@@ -695,7 +695,7 @@ table.week td.today{background:#F8FAFF}
     const r = S.rows.find(x => x.id === detailId); if (!r) return closeDetail();
     const i = detailP; const code = codeOf(r, i); const fut = i > lastOpenIdx();
     const items = []; PT.forEach((p, k) => schedOf(r, k).forEach(x => items.push({ ...x, k })));
-    const groups = {}; items.forEach(x => { const g = `${x.kind}|${x.title}|${x.source}`; (groups[g] ||= { ...x, ps: [], ids: [] }); groups[g].ps.push(x.k + 1); groups[g].ids.push(x.id); });
+    const groups = {}; items.forEach(x => { const g = `${x.kind}|${x.title}|${x.source}|${x.code || ''}`; (groups[g] ||= { ...x, ps: [], ids: [] }); groups[g].ps.push(x.k + 1); groups[g].ids.push(x.id); });
     const srcName = { lecture: '단과 엑셀', teacher: '담임 · 매주', once: '오늘만' };
     $('detail').innerHTML = `<div class="sheet-box">
       <div class="grab" aria-hidden="true"></div>
@@ -709,7 +709,7 @@ table.week td.today{background:#F8FAFF}
         <textarea id="memoIn" maxlength="60" placeholder="예: 상담실 이동, 보건실">${esc(memoOf(r, i))}</textarea>
         <button type="button" class="btn-line" data-memo>메모 저장</button></div>
       <div class="sh-sec"><div class="h">오늘 스케줄</div>
-        <div class="slist">${Object.values(groups).map(g => `<div class="sitem"><span><b>${g.ps.join(', ')}교시</b> ${esc(g.title)}<span class="src">${srcName[g.source] || ''}</span></span>${g.source === 'lecture' ? `<button type="button" data-drop="${esc(g.title)}">수업 빼기</button>` : `<button type="button" data-del="${g.kind}" data-ids="${g.ids.join(',')}">지우기</button>`}</div>`).join('') || '<span style="color:var(--sub);font-size:13px">오늘 스케줄이 없어요.</span>'}</div>
+        <div class="slist">${Object.values(groups).map(g => `<div class="sitem"><span><b>${g.ps.join(', ')}교시</b> ${esc(g.title)}<span class="src">${srcName[g.source] || ''}${g.code ? ' · ' + esc(g.code) : ''}</span></span>${g.source === 'lecture' ? `<button type="button" data-drop="${esc(lecKey(g.code, g.title))}" data-dt="${esc(g.title)}">수업 빼기</button>` : `<button type="button" data-del="${g.kind}" data-ids="${g.ids.join(',')}">지우기</button>`}</div>`).join('') || '<span style="color:var(--sub);font-size:13px">오늘 스케줄이 없어요.</span>'}</div>
         <div class="sadd"><select id="sFrom" aria-label="시작 교시">${PT.map((p, k) => `<option value="${k + 1}" ${k === i ? 'selected' : ''}>${p[0]}교시</option>`).join('')}</select>
           <select id="sTo" aria-label="끝 교시">${PT.map((p, k) => `<option value="${k + 1}" ${k === i ? 'selected' : ''}>~${p[0]}교시</option>`).join('')}</select>
           <input id="sTitle" maxlength="40" placeholder="예: 병원" aria-label="스케줄 이름">
@@ -746,8 +746,8 @@ table.week td.today{background:#F8FAFF}
     }
     const drop = ev.target.closest('[data-drop]');
     if (drop) {
-      try { const { error } = await db.rpc('work_drop_lecture', { p_student_id: r.id, p_title: drop.dataset.drop }); if (error) throw error;
-        toast(`'${drop.dataset.drop}' 수업을 오늘부터 뺐어요. 엑셀을 다시 올려도 들어오지 않아요.`); await load(); renderDetail(); }
+      try { const { error } = await db.rpc('work_drop_lecture', { p_student_id: r.id, p_key: drop.dataset.drop }); if (error) throw error;
+        toast(`'${drop.dataset.dt}' 수업을 오늘부터 뺐어요. 엑셀을 다시 올려도 들어오지 않아요.`); await load(); renderDetail(); }
       catch (e) { toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '빼지 못했어요.'), { err: true }); }
       return;
     }
@@ -812,7 +812,7 @@ table.week td.today{background:#F8FAFF}
         const items = weekItems(di, pi + 1);
         const selOn = SCH.sel.has(`${di}|${pi + 1}`);
         return `<td class="${x.d === today ? 'today' : ''}"><div class="slot ${selOn ? 'sel' : ''}" role="group" aria-label="${x.w}요일 ${p[0]}교시">${items.map(it =>
-          `<button type="button" class="chip ${it.source} ${it.ended ? 'ended' : ''}" data-kind="${it.kind}" data-id="${it.id}" aria-label="${x.w}요일 ${p[0]}교시 ${esc(it.title)} ${label[it.source]}${it.ended ? ' 끝남' : ''}">${esc(it.title)}<small>${it.ended ? `${shortDate(it.valid_to)}까지 · 끝남` : label[it.source]}</small></button>`).join('')}
+          `<button type="button" class="chip ${it.source} ${it.ended ? 'ended' : ''}" data-kind="${it.kind}" data-id="${it.id}" aria-label="${x.w}요일 ${p[0]}교시 ${esc(it.title)} ${label[it.source]}${it.ended ? ' 끝남' : ''}">${esc(it.title)}<small>${it.ended ? `${shortDate(it.valid_to)}까지 · 끝남` : label[it.source] + (it.code ? ' · ' + esc(it.code) : '')}</small></button>`).join('')}
           <button type="button" class="chip addbtn" style="background:transparent;color:var(--mute);font-weight:500;margin-top:auto" data-add="${di}|${pi + 1}" aria-pressed="${selOn}" aria-label="${x.w}요일 ${p[0]}교시 ${selOn ? '선택 해제' : '고르기'}">${selOn ? '✓ 선택됨' : '+ 고르기'}</button></div></td>`;
       }).join('')}</tr>`).join('')}</tbody></table></div>
       <div class="legend2"><span><i style="background:var(--schSoft)"></i>단과 (엑셀로 들어옴)</span><span><i style="background:#DBEAFE"></i>매주 반복 (담임 입력)</span><span><i style="background:#FFEDD5"></i>이번만 (그 날짜만)</span><span><i style="background:#F1F2F4;border:1px dashed #C4C9D2"></i>회색 = 빼서 끝난 스케줄 (지난 날짜에만 남아요)</span></div>
@@ -865,8 +865,9 @@ table.week td.today{background:#F8FAFF}
   function catListHtml() {
     if (SCH.cat === null) return '<span class="selinfo">불러오는 중…</span>';
     const q = (SCH.catQ || '').trim().replace(/\s+/g, '');
-    const cat = (SCH.cat || []).filter(c => !q || c.title.replace(/\s+/g, '').includes(q)).slice(0, 60);
-    return cat.length ? cat.map(c => `<div class="it"><div><div class="ti">${esc(c.title)}</div><div class="pt">${esc(slotsText(c.slots))} · ${c.n}명 수강</div></div><button type="button" class="btn-dark" data-catadd="${(SCH.cat || []).indexOf(c)}">넣기</button></div>`).join('')
+    const qU = q.toUpperCase();
+    const cat = (SCH.cat || []).filter(c => !q || c.title.replace(/\s+/g, '').includes(q) || (c.code || '').includes(qU)).slice(0, 60);
+    return cat.length ? cat.map(c => `<div class="it"><div><div class="ti">${esc(c.title)}</div><div class="pt">${esc(slotsText(c.slots))}${c.code ? ` · <span class="num">${esc(c.code)}</span>` : ''} · ${c.n}명 수강</div></div><button type="button" class="btn-dark" data-catadd="${(SCH.cat || []).indexOf(c)}">넣기</button></div>`).join('')
       : '<span class="selinfo">찾는 수업이 없어요. "직접 입력"에서 칸을 고르고 종류를 "단과 수업"으로 넣을 수 있어요.</span>';
   }
   async function loadCatalog() {
@@ -880,7 +881,7 @@ table.week td.today{background:#F8FAFF}
     try {
       const { data, error } = await db.rpc('work_student_dropped', { p_student_id: SCH.id }); if (error) throw error;
       SCH.dropped = data || [];
-      box.innerHTML = SCH.dropped.length ? `<div class="dropped"><b>화면에서 뺀 단과</b><span>엑셀을 다시 올려도 이 수업은 들어오지 않아요.</span>${SCH.dropped.map((d, k) => `<div class="it"><span>${esc(d.title)}${d.by ? ` <span style="font-size:11px">· ${esc(d.by)}</span>` : ''}</span><button type="button" class="btn-line" data-readd="${k}">다시 넣기</button></div>`).join('')}</div>` : '';
+      box.innerHTML = SCH.dropped.length ? `<div class="dropped"><b>화면에서 뺀 단과</b><span>엑셀을 다시 올려도 이 수업은 들어오지 않아요.</span>${SCH.dropped.map((d, k) => `<div class="it"><span>${esc(d.title)}${d.code ? ` <span class="num" style="font-size:12px">(${esc(d.code)})</span>` : ''}${d.by ? ` <span style="font-size:11px">· ${esc(d.by)}</span>` : ''}</span><button type="button" class="btn-line" data-readd="${k}">다시 넣기</button></div>`).join('')}</div>` : '';
     } catch (e) { box.innerHTML = ''; }
   }
   async function afterSchChange(msg) { toast(msg); SCH.sel.clear(); await loadWeek(); if (SCH.addTab === 'lecture') loadCatalog(); S.data && load(); }
@@ -923,7 +924,7 @@ table.week td.today{background:#F8FAFF}
     const ca = ev.target.closest('[data-catadd]');
     if (ca) {
       const c = SCH.cat[+ca.dataset.catadd];
-      try { const { error } = await db.rpc('work_add_lecture', { p_student_id: SCH.id, p_title: c.title, p_slots: c.slots }); if (error) throw error;
+      try { const { error } = await db.rpc('work_add_lecture', { p_student_id: SCH.id, p_title: c.title, p_slots: c.slots, p_code: c.code || null }); if (error) throw error;
         await afterSchChange(`${c.title} (${slotsText(c.slots)})을(를) 넣었어요.`); }
       catch (e) { toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '넣지 못했어요.'), { err: true }); }
       return;
@@ -932,9 +933,9 @@ table.week td.today{background:#F8FAFF}
     if (ra) {
       const d = SCH.dropped[+ra.dataset.readd];
       if (!SCH.cat) { try { const { data } = await db.rpc('work_lecture_catalog'); SCH.cat = data || []; } catch (e) { SCH.cat = []; } }
-      const c = SCH.cat.filter(x => x.title === d.title).sort((a, b) => b.n - a.n)[0];
+      const c = SCH.cat.filter(x => d.code ? x.code === d.code : x.title === d.title).sort((a, b) => b.n - a.n)[0];
       if (!c) { SCH.addTab = 'direct'; SCH.title = d.title; SCH.rep = 'lecture'; renderAdder(); return toast('지금 이 수업을 듣는 학생이 없어 요일·교시를 알 수 없어요. 표에서 칸을 고르고 "추가"를 눌러 주세요.', { err: true }); }
-      try { const { error } = await db.rpc('work_add_lecture', { p_student_id: SCH.id, p_title: c.title, p_slots: c.slots }); if (error) throw error;
+      try { const { error } = await db.rpc('work_add_lecture', { p_student_id: SCH.id, p_title: c.title, p_slots: c.slots, p_code: c.code || null }); if (error) throw error;
         await afterSchChange(`${c.title} (${slotsText(c.slots)})을(를) 다시 넣었어요.`); }
       catch (e) { toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '넣지 못했어요.'), { err: true }); }
     }
@@ -960,7 +961,8 @@ table.week td.today{background:#F8FAFF}
     const desc = src === 'lecture' ? `단과 엑셀로 들어온 수업이에요. ${it.valid_from}부터` : src === 'teacher' ? `매주 반복 · ${it.valid_from}부터${it.by ? ' · ' + it.by : ''}` : `${it.day} 하루만${it.by ? ' · ' + it.by : ''}`;
     const pop = document.createElement('div'); pop.className = 'pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', it.title);
     pop.innerHTML = `<div class="t">${esc(it.title)}</div><div class="m">${esc(desc)}</div>
-      ${src === 'lecture' ? `<div class="m">수강을 취소했다면 빼 주세요. 이 학생의 '${esc(it.title)}' 수업이 모든 요일에서 오늘부터 빠지고, 엑셀을 다시 올려도 들어오지 않아요.</div><div class="row"><button type="button" class="btn-line" data-pclose>닫기</button><button type="button" class="del" data-pdrop>이 수업 빼기</button></div>`
+      ${src === 'lecture' ? `<div class="m">${it.code ? `수강기호 <b>${esc(it.code)}</b> · ` : ''}${esc(slotsText(SCH.data.regular.filter(x => x.source === 'lecture' && lecKey(x.code, x.title) === lecKey(it.code, it.title) && !(x.valid_to && x.valid_to < SCH.data.today)).map(x => x.weekday * 10 + x.period)))}</div>
+        <div class="m">수강을 취소했다면 빼 주세요. 이 ${it.code ? '반' : '수업'}이 오늘부터 빠지고, 엑셀을 다시 올려도 들어오지 않아요.</div><div class="row"><button type="button" class="btn-line" data-pclose>닫기</button><button type="button" class="del" data-pdrop>이 수업 빼기</button></div>`
         : `<div class="row"><button type="button" class="btn-line" data-pclose>닫기</button><button type="button" class="del" data-pdel>${src === 'teacher' ? '오늘부터 빼기' : '지우기'}</button></div>`}`;
     document.body.appendChild(pop);
     const rc = chip.getBoundingClientRect();
@@ -970,8 +972,8 @@ table.week td.today{background:#F8FAFF}
     pop.addEventListener('click', async (ev) => {
       if (ev.target.closest('[data-pclose]')) return closePop();
       if (ev.target.closest('[data-pdrop]')) {
-        try { const { error } = await db.rpc('work_drop_lecture', { p_student_id: SCH.id, p_title: it.title }); if (error) throw error;
-          closePop(); await afterSchChange(`'${it.title}' 수업을 오늘부터 뺐어요.`); }
+        try { const { error } = await db.rpc('work_drop_lecture', { p_student_id: SCH.id, p_key: lecKey(it.code, it.title) }); if (error) throw error;
+          closePop(); await afterSchChange(`'${it.title}'${it.code ? ` (${it.code})` : ''} 수업을 오늘부터 뺐어요.`); }
         catch (e) { toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e?.message || '빼지 못했어요.'), { err: true }); }
         return;
       }
@@ -1010,6 +1012,9 @@ table.week td.today{background:#F8FAFF}
     }
     return null;
   }
+  // 수강기호 정리: 꼬리표([11], -종합형, -B조) 떼기 → 422D3[11] → 422D3
+  function normCode(code) { return String(code || '').trim().toUpperCase().split('[')[0].split('-')[0].trim(); }
+  function lecKey(code, title) { return code ? code : 'name:' + title; }
   function lectureTitle(subj, teacher) {
     const t = String(teacher || '').replace(/\(.*?\)/g, '').trim();
     return ('러셀' + (SHORT[subj] || subj || '') + t).slice(0, 40);
@@ -1042,8 +1047,8 @@ table.week td.today{background:#F8FAFF}
     (IMP.lectures || []).forEach(l => {
       const p = parseCode(l.code); if (!p) return;
       const slot = p.guess ? IMP.groups[p.key].slot : p.slot;
-      const title = lectureTitle(l.subj, l.teacher);
-      p.days.forEach((d, di) => SLOT[p.slots ? p.slots[di] : slot].forEach(per => { const k = `${l.id}|${d}|${per}|${title}`; if (!seen.has(k)) { seen.add(k); out.push({ student_id: String(l.id).trim(), weekday: d, period: per, title }); } }));
+      const title = lectureTitle(l.subj, l.teacher); const code = normCode(l.code);
+      p.days.forEach((d, di) => SLOT[p.slots ? p.slots[di] : slot].forEach(per => { const k = `${l.id}|${d}|${per}|${code}`; if (!seen.has(k)) { seen.add(k); out.push({ student_id: String(l.id).trim(), weekday: d, period: per, title, code }); } }));
     });
     return out;
   }
@@ -1066,8 +1071,8 @@ table.week td.today{background:#F8FAFF}
         </tbody></table></div>` : ''}
       ${IMP.bad.length ? `<p style="color:var(--late);font-size:13px">읽지 못한 수강기호: ${esc([...new Set(IMP.bad.map(b => b.code))].slice(0, 10).join(', '))}${IMP.bad.length > 10 ? ' …' : ''} (이 수업은 빠져요)</p>` : ''}
       <div class="sh-sec" style="margin-top:14px"><div class="h">미리보기 (앞 8줄)</div>
-        <table class="stat" style="max-width:640px"><thead><tr><th>학번</th><th>요일</th><th>교시</th><th>스케줄 이름</th></tr></thead><tbody>
-        ${rows.slice(0, 8).map(r => `<tr><td style="text-align:left" class="num">${esc(r.student_id)}</td><td>${wd[r.weekday]}</td><td>${r.period}</td><td>${esc(r.title)}</td></tr>`).join('')}</tbody></table></div>
+        <table class="stat" style="max-width:720px"><thead><tr><th>학번</th><th>요일</th><th>교시</th><th>스케줄 이름</th><th>수강기호</th></tr></thead><tbody>
+        ${rows.slice(0, 8).map(r => `<tr><td style="text-align:left" class="num">${esc(r.student_id)}</td><td>${wd[r.weekday]}</td><td>${r.period}</td><td>${esc(r.title)}</td><td class="num">${esc(r.code)}</td></tr>`).join('')}</tbody></table></div>
       <div class="toolbar" style="margin-top:14px">
         <label class="ctl">적용 시작일 <input type="date" id="impFrom" value="${esc(S.today || '')}" style="height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px"></label>
         <label class="chk"><input type="checkbox" id="impIncl"> 화면에서 뺀 단과도 다시 넣기</label>
