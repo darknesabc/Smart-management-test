@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>이동일지 · 교육점수</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
+<style>
+:root{
+  --bg:#F4F5F7; --card:#fff; --line:#E3E6EB; --line2:#EEF0F3; --ink:#15181D; --sub:#4B5361; --mute:#9AA1AD;
+  --ok:#1D4ED8; --okSoft:#E8EEFF; --bad:#B42318; --badSoft:#FDECEA; --warn:#B45309; --warnSoft:#FEF3C7;
+  --sch:#6D28D9; --schSoft:#EDE9FE; --good:#067647; --goodSoft:#E3F6EC;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,'Noto Sans KR',system-ui,sans-serif;font-size:16px;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+.hidden{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-box{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px;display:flex;flex-direction:column;gap:12px}
+.login-box h1{margin:0;font-size:22px}
+.login-box p{margin:0 0 6px;color:var(--sub);font-size:14px;line-height:1.5}
+.field{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--sub);font-weight:600}
+.field input{height:50px;border:1px solid #D5D9E0;border-radius:10px;padding:0 12px;font-size:16px;color:var(--ink);font-weight:400}
+.btn-primary{height:52px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:700;font-size:17px}
+.btn-primary:disabled{opacity:.35}
+.msg-err{color:var(--bad);font-size:14px;min-height:18px}
+
+header.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.top-in{display:flex;align-items:center;gap:12px;padding:10px 18px;max-width:1280px;margin:0 auto}
+.brand{font-weight:800;font-size:19px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand select{height:36px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font-weight:700;background:#fff}
+.clock{margin-left:auto;display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;color:var(--sub);font-weight:600}
+.clock .pp{background:var(--okSoft);color:var(--ok);border-radius:999px;padding:4px 10px;font-size:14px;font-weight:700}
+.link-btn{border:0;background:none;color:var(--mute);font-size:13px;text-decoration:underline;padding:4px}
+#net{background:var(--warnSoft);color:var(--warn);text-align:center;font-weight:600;font-size:14px;padding:8px}
+
+main{max-width:1280px;margin:0 auto;padding:16px 18px 40px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+@media (max-width:980px){ main{grid-template-columns:1fr} }
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.step{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+.step .n{width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.step h2{margin:0;font-size:18px}
+.step .hint{color:var(--mute);font-size:14px;margin-left:auto}
+.card + .card{margin-top:12px}
+.form > .card + .card{margin-top:12px}
+
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.sub-l{font-size:13px;font-weight:700;color:var(--sub);margin:12px 0 6px}
+.b{min-width:64px;height:56px;padding:0 14px;border:1px solid #D5D9E0;background:#fff;border-radius:12px;font-size:18px;font-weight:700}
+.b.sm{min-width:54px;height:52px;font-size:17px}
+.b.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.b:disabled{opacity:.3;cursor:default}
+.seat-box{margin-top:14px;display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 14px;border-radius:12px;background:var(--bg)}
+.seat-box .sn{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+.seat-box .who{font-size:20px;font-weight:700}
+.seat-box .q{color:var(--sub);font-size:15px}
+.seat-box.ok{background:var(--goodSoft)} .seat-box.bad{background:var(--badSoft);color:var(--bad)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:50px;padding:8px 14px;border:1px solid #D5D9E0;background:#fff;border-radius:12px;font-size:16px;font-weight:600;text-align:left;display:inline-flex;align-items:center;gap:8px}
+.chip .pt{font-size:13px;font-weight:700;color:var(--bad);background:var(--badSoft);border-radius:6px;padding:2px 6px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.on .pt{background:rgba(255,255,255,.18);color:#fff}
+.chip.cs{border-color:#C9BEF5;color:var(--sch)} .chip.cs.on{background:var(--sch);border-color:var(--sch);color:#fff}
+.grp-edu .sub-l{color:var(--bad)}
+textarea{width:100%;margin-top:10px;min-height:64px;border:1px solid #D5D9E0;border-radius:10px;padding:10px 12px;font-size:16px;resize:vertical}
+
+.cs-days{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.cs-days .b{flex-shrink:0;font-size:15px;min-width:76px;height:60px;line-height:1.15}
+.cs-days .b small{display:block;font-size:12px;font-weight:600;opacity:.75}
+.cs-note{color:var(--sub);font-size:14px;margin:6px 0}
+
+.submit{position:sticky;bottom:0;margin-top:12px;padding:12px 0 0;background:linear-gradient(transparent,var(--bg) 30%)}
+.submit .btn-primary{width:100%;height:64px;font-size:20px;border-radius:14px}
+.submit .why{text-align:center;color:var(--mute);font-size:14px;margin-top:6px;min-height:18px}
+
+.list h2{margin:0 0 4px;font-size:17px}
+.list .lsub{color:var(--mute);font-size:13px;margin-bottom:10px}
+.it{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line2)}
+.it:first-of-type{border-top:0}
+.it .t{font-variant-numeric:tabular-nums;color:var(--mute);font-size:14px;width:44px;flex-shrink:0}
+.it .m{flex:1;min-width:0}
+.it .m b{font-size:15px}
+.it .m .r{font-size:14px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .m .r .e{color:var(--bad);font-weight:700}
+.it .m .r .c{color:var(--sch);font-weight:700}
+.it .st{font-size:13px;font-weight:700;flex-shrink:0}
+.it .st.wait{color:var(--warn)} .it .st.err{color:var(--bad)}
+.it .ub{border:1px solid var(--line);background:#fff;border-radius:8px;height:34px;padding:0 10px;font-size:13px;font-weight:700;color:var(--sub);flex-shrink:0}
+.empty{color:var(--mute);font-size:14px;padding:16px 0;text-align:center}
+
+.dim{position:fixed;inset:0;background:rgba(15,18,24,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.dlg{background:#fff;border-radius:20px;width:100%;max-width:460px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.dlg h3{margin:0;font-size:21px}
+.sum{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;font-size:18px;background:var(--bg);border-radius:12px;padding:16px}
+.sum dt{color:var(--sub);font-weight:600} .sum dd{margin:0;font-weight:800}
+.sum dd.e{color:var(--bad)}
+.dlg .warn{background:var(--badSoft);color:var(--bad);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.45}
+.dlg .btns{display:flex;gap:10px}
+.dlg .btns button{flex:1;height:58px;border-radius:12px;font-size:18px;font-weight:700}
+.btn-line{border:1px solid #D5D9E0;background:#fff}
+.done{background:#fff;border-radius:24px;padding:36px 40px;text-align:center;max-width:420px}
+.done .ic{font-size:56px;line-height:1}
+.done .tt{font-size:24px;font-weight:800;margin-top:10px}
+.done .ds{font-size:16px;color:var(--sub);margin-top:6px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:600;z-index:60;max-width:90vw}
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <form class="login-box" id="loginForm" autocomplete="on">
+    <h1>이동일지 태블릿</h1>
+    <p>태블릿 전용 계정으로 한 번만 로그인하면 계속 유지돼요.</p>
+    <label class="field">아이디<input id="lid" autocomplete="username" autocapitalize="off" required placeholder="예: kiosk4"></label>
+    <label class="field">비밀번호<input id="lpw" type="password" autocomplete="current-password" required></label>
+    <div class="msg-err" id="lmsg" role="alert"></div>
+    <button class="btn-primary" id="lbtn">로그인</button>
+  </form>
+</section>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="top-in">
+      <div class="brand"><span id="floorText">이동일지</span>
+        <label class="sr" for="floorSel">층</label>
+        <select id="floorSel" class="hidden"></select>
+      </div>
+      <div class="clock"><span class="pp" id="ppNow"></span><span id="clockText"></span>
+        <button type="button" class="link-btn" id="logoutBtn">로그아웃</button></div>
+    </div>
+    <div id="net" class="hidden" role="status">인터넷 연결이 끊겼어요. 넣은 기록은 이 태블릿에 보관했다가 연결되면 자동으로 보내요.</div>
+  </header>
+
+  <main>
+    <div class="form">
+      <section class="card" aria-labelledby="s1">
+        <div class="step"><span class="n">1</span><h2 id="s1">내 좌석</h2><span class="hint">관 → 알파벳 → 번호</span></div>
+        <div class="row" id="hallRow" role="group" aria-label="관"></div>
+        <div class="sub-l">알파벳</div>
+        <div class="row" id="letRow" role="group" aria-label="알파벳"></div>
+        <div class="sub-l">번호</div>
+        <div class="row" id="numRow" role="group" aria-label="번호"></div>
+        <div class="seat-box" id="seatBox" aria-live="polite"><span class="q">좌석을 골라 주세요</span></div>
+      </section>
+
+      <section class="card" aria-labelledby="s2">
+        <div class="step"><span class="n">2</span><h2 id="s2">사유</h2></div>
+        <div class="sub-l">일반 이동</div>
+        <div class="chips" id="moveChips"></div>
+        <textarea id="other" class="hidden" maxlength="40" placeholder="기타 사유를 적어 주세요 (40자까지)"></textarea>
+        <div class="sub-l" style="color:var(--sch)">담임 상담</div>
+        <div class="chips" id="csChips"></div>
+        <div class="grp-edu"><div class="sub-l">규정 위반 · 교육점수</div><div class="chips" id="eduChips"></div></div>
+      </section>
+
+      <section class="card" aria-labelledby="s3" id="retCard">
+        <div class="step"><span class="n">3</span><h2 id="s3">복귀 교시</h2><span class="hint" id="retHint"></span></div>
+        <div class="row" id="retRow" role="group" aria-label="교시"></div>
+      </section>
+
+      <section class="card hidden" aria-labelledby="s3c" id="csCard">
+        <div class="step"><span class="n">3</span><h2 id="s3c">상담 날짜 · 시간</h2><span class="hint" id="csTeacher"></span></div>
+        <div id="csBody"></div>
+      </section>
+
+      <div class="submit">
+        <button type="button" class="btn-primary" id="goBtn" disabled>저장하기</button>
+        <div class="why" id="why"></div>
+      </div>
+    </div>
+
+    <aside class="card list" aria-labelledby="lt">
+      <h2 id="lt">오늘 이 층 태블릿 기록</h2>
+      <div class="lsub">방금 넣은 기록은 5분 안에 이 태블릿에서 취소할 수 있어요.</div>
+      <div id="list"></div>
+    </aside>
+  </main>
+</div>
+
+<div id="dlg" class="dim hidden" role="dialog" aria-modal="true"></div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+(function () {
+  const SB_URL = "https://kqxhxrbpxwdmuvcyhcua.supabase.co";
+  const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxeGh4cmJweHdkbXV2Y3loY3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDc4MzQsImV4cCI6MjA5MTcyMzgzNH0.Y_esLcGduxQteKUsbcwuqUKiGMMM8ItjyZFwpI2cu2A";
+  // 상담 신청 · 취소만 지금처럼 Apps Script(구글 시트)로 보냅니다
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO3_XoamjQF9F7pRazW9L_3P0TqEGH1pg2373ifiob9GJKwfjqV35f0KF053NHElyz/exec";
+  const db = supabase.createClient(SB_URL, SB_KEY, { auth: { storageKey: 'kiosk-auth', persistSession: true, autoRefreshToken: true } });
+
+  const PT = [["1","08:00","08:30"],["2","08:50","10:10"],["3","10:30","12:10"],["4","13:20","14:30"],["5","14:50","15:50"],["6","16:10","17:30"],["7","18:40","20:10"],["8","20:30","22:00"]];
+  const MOVE = ['화장실/정수기','대기자습실 이동','튜터 질의응답','외부 학원/과외/보충','내부 학원/보충','자료수령','가족 행사','병원','식사','조퇴(컨디션난조)','기타'];
+  const EDU = { '지각':1, '자습 중 이동 태블릿 미입력':1, '입/퇴실 미준수':3, '취침강제하원(7회)':3, '음식물섭취':3, '무단지각':5,
+    '원내대화':5, '타층/타관 무단출입':5, '모의고사 무단 1회 미응시':5, '무단이탈':7, '무단결석':7, '핸드폰 미제출':7, '핸드폰 무단사용':7, '전자기기 부정사용':10 };
+  const CS = ['상담 신청', '상담 취소'];
+  const WD = ['일','월','화','수','목','금','토'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+  const isNetErr = (e) => !navigator.onLine || /fetch|network|Failed|Load failed|timeout/i.test(String(e?.message || e));
+  const kstNow = () => new Date(Date.now() + 9 * 3600e3);
+  const kstDay = () => kstNow().toISOString().slice(0, 10);
+  const kstHM = () => kstNow().toISOString().slice(11, 16);
+  function curPeriod() { const hm = kstHM(); let p = 0; PT.forEach((x, i) => { if (hm >= x[1]) p = i + 1; }); return p; } // 0 = 1교시 전
+
+  const S = { role: '', floor: null, seats: [], hall: null, let: null, num: null, who: undefined, whoSeq: 0,
+              reason: null, ret: null, cs: null, list: [], queue: [], busy: false };
+  try { S.queue = JSON.parse(ls.get('kioskQ') || '[]'); } catch (e) { S.queue = []; }
+  const saveQ = () => ls.set('kioskQ', JSON.stringify(S.queue));
+
+  // ---------- 로그인 ----------
+  async function boot() {
+    const { data } = await db.auth.getSession();
+    if (data?.session) showApp(data.session); else showLogin();
+  }
+  function showLogin(msg) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('lmsg').textContent = msg || ''; }
+  $('loginForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const id = $('lid').value.trim(), pw = $('lpw').value; if (!id || !pw) return;
+    $('lbtn').disabled = true; $('lmsg').textContent = '';
+    try {
+      const email = id.includes('@') ? id : (/^kiosk/i.test(id) ? `${id.toLowerCase()}@kiosk.russel.local` : `${id}@megastudy.net`);
+      const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
+      if (error) throw error;
+      showApp(data.session);
+    } catch (e) { $('lmsg').textContent = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : '아이디나 비밀번호를 확인해 주세요.'; }
+    finally { $('lbtn').disabled = false; }
+  });
+  $('logoutBtn').addEventListener('click', () => {
+    openDlg(`<h3>로그아웃할까요?</h3><p style="margin:0;color:var(--sub)">다시 쓰려면 태블릿 계정 비밀번호가 필요해요.</p>
+      <div class="btns"><button type="button" class="btn-line" data-x>취소</button><button type="button" class="btn-primary" id="loOk">로그아웃</button></div>`);
+    $('loOk').onclick = async () => { closeDlg(); try { await db.auth.signOut({ scope: 'local' }); } catch (e) {} showLogin(); };
+  });
+
+  async function showApp(session) {
+    const md = session?.user?.app_metadata || {};
+    S.role = md.role || '';
+    if (S.role !== 'kiosk' && S.role !== 'staff') { try { await db.auth.signOut({ scope: 'local' }); } catch (e) {} return showLogin('태블릿 계정으로 로그인해 주세요.'); }
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    if (S.role === 'staff') {
+      const fs = $('floorSel'); fs.classList.remove('hidden');
+      fs.innerHTML = [1, 3, 4, 5, 6, 7].map(f => `<option value="${f}">${f}층</option>`).join('');
+      fs.value = ls.get('kioskFloor') || '4';
+      fs.onchange = () => { ls.set('kioskFloor', fs.value); resetForm(); loadSeats(); };
+    }
+    await loadSeats();
+  }
+  const floorArg = () => (S.role === 'staff' ? +$('floorSel').value : null);
+
+  async function loadSeats() {
+    try {
+      const { data, error } = await db.rpc('kiosk_seats', { p_floor: floorArg() });
+      if (error) throw error;
+      S.floor = data.floor; S.seats = data.seats || [];
+      $('floorText').textContent = S.role === 'staff' ? '이동일지' : `${S.floor}층 이동일지`;
+      setNet(false); renderAll(); loadList(); flushQueue();
+    } catch (e) {
+      if (isNetErr(e)) { setNet(true); setTimeout(loadSeats, 10000); }
+      else if (/로그인/.test(e.message || '')) { try { await db.auth.signOut({ scope: 'local' }); } catch (x) {} showLogin(e.message); }
+      else toast(e.message || '불러오지 못했어요.');
+    }
+  }
+
+  // ---------- 좌석 ----------
+  const parse = (s) => { const m = /^(\d+)-(\d+)([A-Z]+)(\d+)$/i.exec(s); return m ? { hall: m[2], let: m[3].toUpperCase(), num: m[4] } : null; };
+  const seatNo = () => (S.hall && S.let && S.num ? `${S.floor}-${S.hall}${S.let}${S.num}` : null);
+  function renderSeat() {
+    const P = S.seats.map(parse).filter(Boolean);
+    const halls = [...new Set(P.map(p => p.hall))].sort((a, b) => a - b);
+    $('hallRow').innerHTML = halls.map(h => `<button type="button" class="b ${S.hall === h ? 'on' : ''}" data-h="${h}" aria-pressed="${S.hall === h}">${S.floor}-${h}관</button>`).join('') || '<span class="empty">좌석 정보가 없어요</span>';
+    const inHall = P.filter(p => p.hall === S.hall);
+    const lets = [...new Set(inHall.map(p => p.let))].sort();
+    $('letRow').innerHTML = S.hall ? lets.map(l => `<button type="button" class="b sm ${S.let === l ? 'on' : ''}" data-l="${l}" aria-pressed="${S.let === l}">${l}</button>`).join('') : '<span class="cs-note">관을 먼저 골라 주세요</span>';
+    const nums = [...new Set(inHall.filter(p => p.let === S.let).map(p => p.num))].sort();
+    $('numRow').innerHTML = S.let ? nums.map(n => `<button type="button" class="b sm ${S.num === n ? 'on' : ''}" data-n="${n}" aria-pressed="${S.num === n}">${n}</button>`).join('') : '<span class="cs-note">알파벳을 먼저 골라 주세요</span>';
+    const box = $('seatBox'), sn = seatNo();
+    box.className = 'seat-box';
+    if (!sn) box.innerHTML = '<span class="q">좌석을 골라 주세요</span>';
+    else if (S.who === undefined) box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">확인하는 중…</span>`;
+    else if (S.who === null) { box.classList.add('bad'); box.innerHTML = `<span class="sn">${esc(sn)}</span><span>빈 좌석이에요. 좌석 번호를 다시 확인해 주세요.</span>`; }
+    else if (S.who === 'err') box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="q">이름을 확인하지 못했어요 (저장은 할 수 있어요)</span>`;
+    else { box.classList.add('ok'); box.innerHTML = `<span class="sn">${esc(sn)}</span><span class="who">${esc(S.who.name)}</span><span class="q">학생 맞나요?</span>`; }
+  }
+  $('hallRow').onclick = (e) => { const b = e.target.closest('[data-h]'); if (!b) return; S.hall = b.dataset.h; S.let = null; S.num = null; S.who = undefined; touch(); renderAll(); };
+  $('letRow').onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; S.let = b.dataset.l; S.num = null; S.who = undefined; touch(); renderAll(); };
+  $('numRow').onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; S.num = b.dataset.n; S.who = undefined; touch(); renderAll(); lookup(); };
+  async function lookup() {
+    const sn = seatNo(); if (!sn) return; const seq = ++S.whoSeq;
+    try {
+      const { data, error } = await db.rpc('kiosk_who', { p_seat: sn, p_floor: floorArg() });
+      if (error) throw error;
+      if (seq !== S.whoSeq) return;
+      S.who = data || null;
+    } catch (e) { if (seq !== S.whoSeq) return; S.who = 'err'; }
+    if (S.cs && S.who && S.who !== 'err') loadCounsel();
+    renderAll();
+  }
+
+  // ---------- 사유 · 교시 ----------
+  const isEdu = (r) => Object.prototype.hasOwnProperty.call(EDU, r);
+  const isCs = (r) => CS.includes(r);
+  function renderReason() {
+    const chip = (r, extra, cls) => `<button type="button" class="chip ${cls || ''} ${S.reason === r ? 'on' : ''}" data-r="${esc(r)}" aria-pressed="${S.reason === r}">${esc(r)}${extra || ''}</button>`;
+    $('moveChips').innerHTML = MOVE.map(r => chip(r)).join('');
+    $('csChips').innerHTML = CS.map(r => chip(r, '', 'cs')).join('');
+    $('eduChips').innerHTML = Object.entries(EDU).map(([r, p]) => chip(r, `<span class="pt">${p}점</span>`)).join('');
+    $('other').classList.toggle('hidden', S.reason !== '기타');
+  }
+  document.querySelector('.form').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-r]'); if (!c) return;
+    const r = c.dataset.r; const was = S.reason;
+    S.reason = r; touch();
+    if (isEdu(r) && !isEdu(was)) S.ret = String(Math.max(1, curPeriod()));      // 교육점수는 지금 교시가 기본
+    if (!isEdu(r) && isEdu(was)) S.ret = null;
+    if (isEdu(r) && S.ret === '복귀안함') S.ret = null;
+    if (isCs(r)) { if (S.cs?.reason !== r) { S.cs = { reason: r, state: 'idle' }; loadCounsel(); } } else S.cs = null;
+    if (r === '기타') setTimeout(() => $('other').focus(), 50);
+    renderAll();
+  });
+  $('other').addEventListener('input', () => { touch(); renderGo(); });
+
+  function renderRet() {
+    const cs = isCs(S.reason);
+    $('retCard').classList.toggle('hidden', cs); $('csCard').classList.toggle('hidden', !cs);
+    const edu = isEdu(S.reason), cp = curPeriod();
+    $('s3').textContent = edu ? '몇 교시에 있었던 일인가요?' : '복귀 교시';
+    $('retHint').textContent = cp ? `지금 ${cp}교시` : '지금 1교시 전';
+    const opts = PT.map(p => p[0]).concat(edu ? [] : ['복귀안함']);
+    $('retRow').innerHTML = opts.map(v => `<button type="button" class="b ${S.ret === v ? 'on' : ''}" data-ret="${v}" aria-pressed="${S.ret === v}">${v === '복귀안함' ? '복귀안함' : v + '교시'}</button>`).join('');
+  }
+  $('retRow').onclick = (e) => { const b = e.target.closest('[data-ret]'); if (!b) return; S.ret = b.dataset.ret; touch(); renderAll(); };
+
+  // ---------- 상담 (구글 시트) ----------
+  async function loadCounsel() {
+    const cs = S.cs; if (!cs) return;
+    const t = S.who && S.who !== 'err' ? S.who.teacher : null;
+    if (!seatNo() || !t) { cs.state = 'needseat'; return renderCs(); }
+    cs.teacher = t; cs.state = 'loading'; cs.day = null; cs.time = null; renderCs();
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getTeacherSchedule&teacherName=${encodeURIComponent(t)}&t=${Date.now()}`);
+      const data = await res.json();
+      if (S.cs !== cs) return;
+      if (data.error) throw new Error(data.error);
+      const target = `상담(${seatNo()})`, cancel = cs.reason === '상담 취소', today = kstDay();
+      const days = [];
+      (data[1] || []).slice(1).forEach((d, i) => {
+        const ds = String(d).split(/[ T]/)[0]; if (!/^\d{4}-\d{2}-\d{2}$/.test(ds) || ds < today) return;
+        const times = [];
+        for (let r = 2; r < data.length; r++) {
+          const v = String(data[r][i + 1] ?? '').trim(), label = String(data[r][0] ?? '').trim();
+          if (!label) continue;
+          const st = label.split('~')[0].trim();
+          if (ds === today && !cancel && st <= kstHM()) continue;
+          if (cancel ? v.includes(target) : v === '') times.push(st);
+        }
+        if (times.length) days.push({ ds, times });
+      });
+      cs.days = days; cs.state = 'ready';
+    } catch (e) { if (S.cs !== cs) return; cs.state = 'error'; cs.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '시간표를 불러오지 못했어요.'); }
+    renderAll();
+  }
+  function renderCs() {
+    const cs = S.cs; if (!cs) return;
+    $('csTeacher').textContent = cs.teacher ? `${cs.teacher} 선생님` : '';
+    const box = $('csBody');
+    if (cs.state === 'needseat') box.innerHTML = '<p class="cs-note">좌석을 먼저 고르면 담임 선생님 시간표를 불러와요.</p>';
+    else if (cs.state === 'loading' || cs.state === 'idle') box.innerHTML = '<p class="cs-note">시간표를 불러오는 중…</p>';
+    else if (cs.state === 'error') box.innerHTML = `<p class="cs-note" style="color:var(--bad)">${esc(cs.err)}</p><button type="button" class="b sm" id="csRetry">다시 불러오기</button>`;
+    else if (!cs.days.length) box.innerHTML = `<p class="cs-note">${cs.reason === '상담 취소' ? '취소할 상담 신청이 없어요.' : '신청할 수 있는 시간이 없어요.'}</p>`;
+    else {
+      const d = cs.days.find(x => x.ds === cs.day);
+      box.innerHTML = `<div class="sub-l" style="margin-top:0">날짜</div><div class="cs-days">${cs.days.map(x => { const dt = new Date(x.ds + 'T00:00:00Z');
+          return `<button type="button" class="b ${cs.day === x.ds ? 'on' : ''}" data-cd="${x.ds}">${+x.ds.slice(5, 7)}/${+x.ds.slice(8)}<small>${WD[dt.getUTCDay()]} · ${x.times.length}개</small></button>`; }).join('')}</div>
+        ${d ? `<div class="sub-l">시간</div><div class="row">${d.times.map(t => `<button type="button" class="b sm ${cs.time === t ? 'on' : ''}" data-ct="${t}">${t}</button>`).join('')}</div>` : '<p class="cs-note">날짜를 골라 주세요.</p>'}`;
+    }
+    const rb = $('csRetry'); if (rb) rb.onclick = loadCounsel;
+  }
+  $('csBody').addEventListener('click', (e) => {
+    const d = e.target.closest('[data-cd]'), t = e.target.closest('[data-ct]'); if (!S.cs) return;
+    if (d) { S.cs.day = d.dataset.cd; S.cs.time = null; } else if (t) S.cs.time = t.dataset.ct; else return;
+    touch(); renderAll();
+  });
+
+  // ---------- 저장 ----------
+  function missing() {
+    if (!seatNo()) return '좌석을 골라 주세요';
+    if (S.who === undefined) return '좌석 확인 중…';
+    if (S.who === null) return '빈 좌석이에요';
+    if (!S.reason) return '사유를 골라 주세요';
+    if (S.reason === '기타' && !$('other').value.trim()) return '기타 사유를 적어 주세요';
+    if (isCs(S.reason)) { if (!S.cs || S.cs.state !== 'ready') return '상담 시간표를 기다리는 중'; if (!S.cs.day || !S.cs.time) return '상담 날짜와 시간을 골라 주세요'; return ''; }
+    if (!S.ret) return isEdu(S.reason) ? '교시를 골라 주세요' : '복귀 교시를 골라 주세요';
+    return '';
+  }
+  function renderGo() { const m = missing(); $('goBtn').disabled = !!m; $('why').textContent = m; }
+  $('goBtn').onclick = () => {
+    if (missing()) return;
+    const sn = seatNo(), edu = isEdu(S.reason), cs = isCs(S.reason);
+    const reasonTxt = S.reason === '기타' ? `기타 · ${$('other').value.trim()}` : S.reason;
+    const who = S.who && S.who !== 'err' ? S.who.name : '';
+    const third = cs ? ['상담', `${S.cs.teacher} 선생님 · ${+S.cs.day.slice(5, 7)}/${+S.cs.day.slice(8)} ${S.cs.time}`]
+                     : [edu ? '교시' : '복귀', S.ret === '복귀안함' ? '복귀안함' : S.ret + '교시'];
+    openDlg(`<h3>${cs ? esc(S.reason) : edu ? '교육점수 기록' : '이동 기록'} 확인</h3>
+      <dl class="sum"><dt>좌석</dt><dd>${esc(sn)} ${esc(who)}</dd>
+        <dt>사유</dt><dd class="${edu ? 'e' : ''}">${esc(reasonTxt)}${edu ? ` (${EDU[S.reason]}점)` : ''}</dd>
+        <dt>${third[0]}</dt><dd>${esc(third[1])}</dd></dl>
+      ${edu ? '<div class="warn">교육점수가 기록돼요. 본인 좌석이 맞는지 꼭 확인해 주세요.</div>' : ''}
+      <div class="btns"><button type="button" class="btn-line" data-x>다시 고르기</button><button type="button" class="btn-primary" id="okBtn">네, 저장</button></div>`);
+    $('okBtn').onclick = () => { closeDlg(); cs ? sendCounsel() : save(); };
+  };
+
+  function save() {
+    const item = { client_id: uuid(), seat: seatNo(), reason: S.reason, ret: S.ret, note: S.reason === '기타' ? $('other').value.trim() : null,
+                   floor: floorArg(), kind: isEdu(S.reason) ? 'edu' : 'move', name: S.who && S.who !== 'err' ? S.who.name : '', time: kstHM(), at: Date.now() };
+    S.queue.push(item); saveQ();
+    resetForm(); renderList();
+    flushQueue(item.client_id);
+  }
+  async function flushQueue(showFor) {
+    if (S.busy || !S.queue.length) return; S.busy = true;
+    try {
+      for (const it of S.queue.filter(x => !x.err)) {
+        try {
+          const { data, error } = await db.rpc('kiosk_add', { p_client_id: it.client_id, p_seat: it.seat, p_reason: it.reason, p_return: it.ret, p_note: it.note, p_floor: it.floor });
+          if (error) throw error;
+          S.queue = S.queue.filter(x => x.client_id !== it.client_id); saveQ(); setNet(false);
+          if (it.client_id === showFor) done('저장됐어요', `${it.seat} ${data?.name || it.name}`);
+        } catch (e) {
+          if (isNetErr(e) || /JWT|token/i.test(e.message || '')) {
+            setNet(true); if (it.client_id === showFor) done('이 태블릿에 보관했어요', '인터넷이 연결되면 자동으로 보내요', '⏳');
+            break;
+          }
+          it.err = e.message || '저장하지 못했어요'; saveQ();      // 사유가 잘못됐거나 빈 좌석 등: 다시 보내도 안 됨
+          if (it.client_id === showFor) done('저장하지 못했어요', it.err, '⚠️');
+        }
+      }
+    } finally { S.busy = false; loadList(); }
+  }
+
+  async function sendCounsel() {
+    const cs = S.cs, sn = seatNo(), p = parse(sn);
+    const now = kstNow();
+    const payload = { building: `${S.floor}-${p.hall}관`, seatNumber: p.let + p.num, returnTime: cs.time, reason: cs.reason, score: null,
+      inputDate: now.toISOString().slice(0, 10), inputTime: now.toISOString().slice(11, 19), targetSeat: cs.teacher, studentName: '', counselingDate: cs.day };
+    $('goBtn').disabled = true; $('why').textContent = '보내는 중…';
+    let ok = false, unsure = false;
+    try {
+      const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const txt = await res.text(); ok = /Success|Duplicate/.test(txt);
+      if (!ok) throw new Error(txt || '실패');
+    } catch (e) {
+      if (isNetErr(e) && navigator.onLine) {        // 응답만 못 읽은 경우: 예전 방식으로 한 번 더 (응답 확인 불가)
+        try { await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) }); ok = true; unsure = true; } catch (x) {}
+      }
+    }
+    if (ok) {
+      S.list.unshift({ kind: 'cs', seat: sn, name: S.who?.name || '', reason: cs.reason, ret: `${+cs.day.slice(5, 7)}/${+cs.day.slice(8)} ${cs.time}`, time: kstHM(), local: true });
+      let keep = []; try { keep = JSON.parse(ls.get('kioskCs') || '[]').filter(x => x.day === kstDay()); } catch (e) {}
+      keep.unshift({ ...S.list[0], day: kstDay() }); ls.set('kioskCs', JSON.stringify(keep.slice(0, 30)));
+      done(cs.reason === '상담 취소' ? '상담을 취소했어요' : '상담을 신청했어요', `${cs.teacher} 선생님 · ${+cs.day.slice(5, 7)}/${+cs.day.slice(8)} ${cs.time}${unsure ? ' (전송 확인은 못 했어요)' : ''}`);
+      resetForm(); renderList();
+    } else { renderGo(); toast('상담 신청을 보내지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.'); }
+  }
+
+  // ---------- 오늘 기록 ----------
+  async function loadList() {
+    try {
+      const { data, error } = await db.rpc('kiosk_today', { p_floor: floorArg() });
+      if (error) throw error;
+      let cs = []; try { cs = JSON.parse(ls.get('kioskCs') || '[]').filter(x => x.day === kstDay()); } catch (e) {}
+      S.list = [...cs, ...(data || [])].sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+      renderList();
+    } catch (e) { if (isNetErr(e)) setNet(true); }
+  }
+  function renderList() {
+    const q = S.queue.map(x => ({ ...x, q: true }));
+    const all = [...q, ...S.list];
+    $('list').innerHTML = all.length ? all.slice(0, 60).map(x => {
+      const r = x.kind === 'edu' ? `<span class="e">${esc(x.reason)}</span> · ${esc(x.ret)}교시`
+              : x.kind === 'cs' ? `<span class="c">${esc(x.reason)}</span> · ${esc(x.ret)}`
+              : `${esc(x.reason === '기타' && x.note ? x.note : x.reason)} · ${x.ret === '복귀안함' ? '복귀안함' : esc(x.ret) + '교시 복귀'}`;
+      const st = x.q ? (x.err ? `<span class="st err" title="${esc(x.err)}">실패</span><button type="button" class="ub" data-drop="${esc(x.client_id)}">지우기</button>` : '<span class="st wait">보내는 중</span>')
+               : x.can_undo ? `<button type="button" class="ub" data-undo="${esc(x.client_id)}">취소</button>` : '';
+      return `<div class="it"><span class="t">${esc(x.time)}</span><div class="m"><b>${esc(x.seat)} ${esc(x.name)}</b><div class="r">${r}</div>${x.err ? `<div class="r" style="color:var(--bad)">${esc(x.err)}</div>` : ''}</div>${st}</div>`;
+    }).join('') : '<div class="empty">오늘 넣은 기록이 아직 없어요</div>';
+  }
+  $('list').addEventListener('click', (e) => {
+    const u = e.target.closest('[data-undo]'), d = e.target.closest('[data-drop]');
+    if (d) { S.queue = S.queue.filter(x => x.client_id !== d.dataset.drop); saveQ(); renderList(); return; }
+    if (!u) return;
+    const it = S.list.find(x => x.client_id === u.dataset.undo);
+    openDlg(`<h3>이 기록을 취소할까요?</h3><dl class="sum"><dt>좌석</dt><dd>${esc(it?.seat)} ${esc(it?.name)}</dd><dt>사유</dt><dd>${esc(it?.reason)}</dd></dl>
+      <div class="btns"><button type="button" class="btn-line" data-x>그대로 두기</button><button type="button" class="btn-primary" id="unOk">취소하기</button></div>`);
+    $('unOk').onclick = async () => {
+      closeDlg();
+      try { const { error } = await db.rpc('kiosk_undo', { p_client_id: u.dataset.undo }); if (error) throw error; toast('취소했어요.'); }
+      catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '취소하지 못했어요.')); }
+      loadList();
+    };
+  });
+
+  // ---------- 공통 ----------
+  function renderAll() { renderSeat(); renderReason(); renderRet(); renderCs(); renderGo(); }
+  function resetForm() { S.hall = null; S.let = null; S.num = null; S.who = undefined; S.whoSeq++; S.reason = null; S.ret = null; S.cs = null; $('other').value = ''; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function openDlg(html) { const d = $('dlg'); d.innerHTML = `<div class="dlg">${html}</div>`; d.classList.remove('hidden'); }
+  function closeDlg() { $('dlg').classList.add('hidden'); $('dlg').innerHTML = ''; }
+  $('dlg').addEventListener('click', (e) => { if (e.target.closest('[data-x]') || e.target === $('dlg')) closeDlg(); });
+  let doneT;
+  function done(title, desc, ic) {
+    const d = $('dlg'); d.innerHTML = `<div class="done"><div class="ic">${ic || '✅'}</div><div class="tt">${esc(title)}</div><div class="ds">${esc(desc)}</div></div>`;
+    d.classList.remove('hidden'); clearTimeout(doneT); doneT = setTimeout(closeDlg, ic === '⚠️' ? 4000 : 1800);
+  }
+  let toastT;
+  function toast(m) { const t = $('toast'); t.textContent = m; t.classList.remove('hidden'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hidden'), 3500); }
+  function setNet(off) { $('net').classList.toggle('hidden', !off); }
+
+  // 1분 동안 아무것도 안 하면 고르던 내용을 지움 (다음 학생이 이어서 쓰지 않게)
+  let idleT;
+  function touch() { clearTimeout(idleT); idleT = setTimeout(() => { if ($('dlg').classList.contains('hidden') && (S.hall || S.reason)) resetForm(); }, 60000); }
+
+  function tick() {
+    const n = kstNow(), cp = curPeriod();
+    $('clockText').textContent = `${n.getUTCMonth() + 1}/${n.getUTCDate()}(${WD[n.getUTCDay()]}) ${n.toISOString().slice(11, 16)}`;
+    $('ppNow').textContent = cp ? `${cp}교시` : '1교시 전';
+    if (S.day && S.day !== kstDay()) location.reload();     // 자정이 지나면 새로고침
+    S.day = kstDay();
+  }
+  setInterval(tick, 15000); tick();
+  setInterval(() => { if (S.floor === null) return; if (S.queue.length) flushQueue(); else if (document.visibilityState === 'visible') loadList(); }, 30000);
+  window.addEventListener('online', () => { setNet(false); flushQueue(); });
+
+  boot();
+})();
+</script>
+</body>
+</html>
