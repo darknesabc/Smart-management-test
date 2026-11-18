@@ -1004,7 +1004,17 @@ table.week td.today{background:#F8FAFF}
     d.classList.remove('hidden');
     const close = () => { d.classList.add('hidden'); d.innerHTML = ''; };
     const save = async (rounds) => {
-      try { const { error } = await db.rpc('work_sms_set_exclude', { p_student_id: id, p_day: S.day, p_rounds: rounds, p_reason: $('smsReason').value }); if (error) throw error; close(); toast(rounds.length ? '문자에서 뺐어요.' : '제외를 취소했어요.'); loadSms(); }
+      const prev = e ? { rounds: e.rounds, reason: e.reason || '' } : { rounds: [], reason: '' }, day = S.day;
+      try {
+        const { error } = await db.rpc('work_sms_set_exclude', { p_student_id: id, p_day: day, p_rounds: rounds, p_reason: $('smsReason').value }); if (error) throw error;
+        close(); loadSms();
+        toast(rounds.length ? `${r.name} 학생을 문자에서 뺐어요.` : `${r.name} 학생 제외를 취소했어요.`, { undo: async () => {     // 바로 되돌리기
+          $('toast').classList.add('hidden');
+          try { const { error: e2 } = await db.rpc('work_sms_set_exclude', { p_student_id: id, p_day: day, p_rounds: prev.rounds, p_reason: prev.reason }); if (e2) throw e2; toast('되돌렸어요.'); }
+          catch (err) { toast(err.message || '되돌리지 못했어요.', { err: true }); }
+          loadSms();
+        } });
+      }
       catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
     };
     d.onclick = (ev) => {
