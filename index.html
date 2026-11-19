@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>출석부 · 업무</title>
+<title>러셀 담임 업무</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
@@ -40,6 +40,11 @@ header.top{background:var(--card);border-bottom:1px solid var(--line);position:s
 nav.tabs{display:flex;gap:4px}
 nav.tabs button{min-height:40px;padding:0 14px;border-radius:10px;border:0;background:transparent;color:var(--sub);font-weight:700;white-space:nowrap;flex-shrink:0}
 nav.tabs button.on{background:var(--ink);color:#fff}
+nav.subtabs{display:flex;gap:2px;max-width:1400px;margin:0 auto;padding:0 20px;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--line)}
+nav.subtabs::-webkit-scrollbar{display:none}
+nav.subtabs button{min-height:40px;padding:0 14px;border:0;background:transparent;color:var(--sub);font-weight:700;font-size:14px;white-space:nowrap;flex-shrink:0;border-bottom:3px solid transparent}
+nav.subtabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+nav.subtabs button.hidden{display:none}
 .datebox{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:14px}
 .icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid #D5D9E0;background:#fff;display:inline-flex;align-items:center;justify-content:center}
 .datebox .d{font-weight:700;min-width:118px;text-align:center}
@@ -390,7 +395,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 #net{background:#FEF3C7;color:#78350F;text-align:center;font-size:13px;padding:8px}
 
 @media (max-width:899px){
-  .top-in{padding:10px 14px}
+  .top-in{padding:10px 14px} nav.subtabs{padding:0 8px} nav.subtabs button{padding:0 11px}
   main{padding:10px 14px 110px}
   .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
   button.kpi .l .go{display:none}
@@ -415,7 +420,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 
 <section id="login" class="hidden" aria-label="로그인">
   <form class="login-box" id="loginForm">
-    <h1>출석부</h1>
+    <h1>러셀 담임 업무</h1>
     <p>선생님 계정으로 로그인해 주세요.</p>
     <label class="field">아이디<input id="lid" autocomplete="username" required></label>
     <label class="field">비밀번호<input id="lpw" type="password" autocomplete="current-password" required></label>
@@ -427,21 +432,15 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 <div id="app" class="hidden">
   <header class="top">
     <div class="top-in">
-      <div class="brand">출석부
+      <div class="brand">담임 업무
         <label class="sr" for="floorSel">층</label>
         <select id="floorSel" class="floor-sel"></select>
       </div>
-      <nav class="tabs" aria-label="메뉴">
-        <button type="button" id="tabAtt" class="on">출결</button>
-        <button type="button" id="tabAbs">미등원</button>
-        <button type="button" id="tabSleep">순찰</button>
-        <button type="button" id="tabEdu">교육점수</button>
-        <button type="button" id="tabStat">등원 현황</button>
-        <button type="button" id="tabSch">스케줄 관리</button>
-        <button type="button" id="tabRep">인원보고</button>
-        <button type="button" id="tabExam">모의고사</button>
-        <button type="button" id="tabImp">단과 관리</button>
-        <button type="button" id="tabKio">태블릿 기록</button>
+      <nav class="tabs" id="grpNav" aria-label="메뉴">
+        <button type="button" data-g="att" class="on">출결</button>
+        <button type="button" data-g="life">생활지도</button>
+        <button type="button" data-g="rep">보고 · 시험</button>
+        <button type="button" data-g="mng">관리</button>
       </nav>
       <div class="datebox">
         <button type="button" class="icon-btn" id="prevDay" aria-label="전날">‹</button>
@@ -451,6 +450,18 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
         <span class="who"><span class="nm" id="whoName"></span><button type="button" class="link-btn" id="logoutBtn">로그아웃</button></span>
       </div>
     </div>
+    <nav class="subtabs" id="subNav" aria-label="세부 메뉴">
+      <button type="button" id="tabAtt" data-g="att" class="on">출결</button>
+      <button type="button" id="tabAbs" data-g="att">미등원</button>
+      <button type="button" id="tabStat" data-g="att">등원 현황</button>
+      <button type="button" id="tabSleep" data-g="life" class="hidden">순찰</button>
+      <button type="button" id="tabEdu" data-g="life" class="hidden">교육점수</button>
+      <button type="button" id="tabKio" data-g="life" class="hidden">태블릿 기록</button>
+      <button type="button" id="tabRep" data-g="rep" class="hidden">인원보고</button>
+      <button type="button" id="tabExam" data-g="rep" class="hidden">모의고사</button>
+      <button type="button" id="tabSch" data-g="mng" class="hidden">스케줄 관리</button>
+      <button type="button" id="tabImp" data-g="mng" class="hidden">단과 관리</button>
+    </nav>
   </header>
 
   <main id="viewAtt">
@@ -2346,17 +2357,17 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const w = window.open('', '_blank'); if (!w) return toast('팝업이 막혀 있어요. 팝업을 허용해 주세요.', { err: true });
     const now = new Date(Date.now() + 9 * 3600e3);
     const printed = `출력 ${dayLabel(now.toISOString().slice(0, 10))} ${now.toISOString().slice(11, 16)}`;
-    const head = `<thead><tr><th>좌석</th><th>담임</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>이번달</th><th>누적</th><th>합계</th></tr></thead>`;
+    const head = `<thead><tr><th>좌석</th><th>담임</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>합계</th></tr></thead>`;
     const line = (r) => {
-      if (r.empty) return `<tr class="em"><td class="k">${esc(r.seat)}</td><td></td>${'<td></td>'.repeat(23)}</tr>`;
+      if (r.empty) return `<tr class="em"><td class="k">${esc(r.seat)}</td><td></td>${'<td></td>'.repeat(21)}</tr>`;
       const o = show.get(r.id);
       const sl = Array.from({ length: 20 }, (_, i) => { const t = o.slots[i] || ''; return `<td class="s${t && i >= o.mSlots ? ' c' : ''}">${esc(t).replace(/\((.+)\)$/, '<br>$1')}${i === 19 && o.slots.length > 20 ? ` +${o.slots.length - 20}` : ''}</td>`; }).join('');
-      return `<tr class="${o.total >= 10 ? 'hi' : ''}"><td class="k">${esc(r.seat)}</td><td>${esc(r.teacher)}</td>${sl}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total || ''}</td></tr>`;
+      return `<tr class="${o.total >= 10 ? 'hi' : ''}"><td class="k">${esc(r.seat)}</td><td>${esc(r.teacher)}</td>${sl}<td class="t">${o.total || ''}</td></tr>`;
     };
     const body = pages.map(pg => {
       const rh = Math.min(9, Math.max(5, Math.floor((360 / pg.list.length) * 10) / 10));   // 한 장에 맞게 줄 높이(mm)
       return `<section class="pg"><div class="hd"><h1>${esc(pg.title)}</h1><div class="sub"><b>${esc(edTitle())}</b><span>${esc(printed)}</span></div></div>
-        <table style="--rh:${rh}mm"><colgroup><col class="k"><col class="tc">${'<col>'.repeat(20)}<col class="n"><col class="n"><col class="n"></colgroup>${head}<tbody>${pg.list.map(line).join('')}</tbody></table></section>`;
+        <table style="--rh:${rh}mm"><colgroup><col class="k"><col class="tc">${'<col>'.repeat(20)}<col class="n"></colgroup>${head}<tbody>${pg.list.map(line).join('')}</tbody></table></section>`;
     }).join('');
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(edTitle())}</title><style>
       @page{size:A3 portrait;margin:7mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
@@ -3000,9 +3011,19 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
+    // 묶음 메뉴: 지금 탭이 속한 묶음만 세부 메뉴에 보여요
+    const g = $('subNav').querySelector('button.on').dataset.g; S.grpLast = S.grpLast || {}; S.grpLast[g] = t;
+    $('grpNav').querySelectorAll('[data-g]').forEach(b => b.classList.toggle('on', b.dataset.g === g));
+    $('subNav').querySelectorAll('[data-g]').forEach(b => b.classList.toggle('hidden', b.dataset.g !== g));
+    const hdr = document.querySelector('header.top'); if (hdr) document.documentElement.style.setProperty('--hh', hdr.offsetHeight + 'px');
     render();
   }
   $('tabAtt').onclick = () => setTab('att');
+  $('grpNav').onclick = (e) => {
+    const b = e.target.closest('[data-g]'); if (!b) return;
+    const last = (S.grpLast || {})[b.dataset.g]; const btn = last ? $('subNav').querySelector(`[data-g="${b.dataset.g}"]#tab${last[0].toUpperCase() + last.slice(1)}`) : null;
+    (btn || $('subNav').querySelector(`[data-g="${b.dataset.g}"]`)).click();
+  };
   $('tabStat').onclick = () => setTab('stat');
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
   $('tabSch').onclick = () => setTab('sch');
