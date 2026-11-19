@@ -811,7 +811,14 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (role === 'student') { try { await db.auth.signOut({ scope: 'local' }); } catch (e) {} return showLogin('학생 계정으로는 들어올 수 없어요.'); }
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
     const email = session?.user?.email || '';
-    $('whoName').textContent = email.split('@')[0] + ' 선생님';
+    const id = email.split('@')[0], key = 'workMe:' + id;
+    let nm = ''; try { nm = localStorage.getItem(key) || ''; } catch (e) {}
+    $('whoName').textContent = (nm || id) + ' 선생님';
+    $('whoName').title = id;
+    db.rpc('work_me').then(({ data, error }) => {          // managers 명단의 이름
+      if (error || !data) return; $('whoName').textContent = data + ' 선생님';
+      try { localStorage.setItem(key, data); } catch (e) {}
+    }).catch(() => {});
     await load(true);
     subscribeRT();
   }
