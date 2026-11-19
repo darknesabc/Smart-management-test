@@ -271,6 +271,11 @@ table.rep thead th{background:#F3F4F6;font-size:12px;font-weight:700;line-height
 table.rep tbody th{font-weight:700;white-space:nowrap}
 table.rep td.sub{font-weight:800}
 table.rep td.rp-z{color:#C3C8D0}
+.rc-list{display:flex;flex-direction:column;gap:6px}
+.rc-form,.rc-floor{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.rc-form .rc-name{width:120px;font-weight:700} .rc-form input,.rc-floor input{min-height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px}
+.rc-tot{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:13px;color:var(--sub)} .rc-mv{margin-left:auto;display:flex;gap:4px}
+#repSeg small{font-weight:500;opacity:.7;font-size:11px}
 table.rep.ra td.ra-n{font-weight:700} table.rep.ra td.ra-red{color:var(--late)}
 table.rep.ra th.ra-g{background:#FAFAFB;font-weight:800;min-width:72px} table.rep.ra th.ra-g small{font-weight:600;color:var(--sub)}
 table.rep.ra tr.ra-sub > *{background:#F5F7FA;font-weight:800} table.rep.ra tr.ra-grp > *{background:#EEF2FF;font-weight:800} table.rep.ra tr.ra-tot > *{background:#E0E7FF;font-weight:800}
@@ -575,7 +580,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       <div class="seg" id="repSeg" role="group" aria-label="보고 교시"></div>
       <span id="repNote" style="font-size:13px;color:var(--sub)"></span>
       <span class="rep-acts"><button type="button" class="btn-dark" id="repSaveDb">저장</button>
-        <span class="sep"></span><button type="button" class="btn-line" id="repCopy">이미지 복사</button><button type="button" class="btn-line hidden" id="repShare">공유</button><button type="button" class="btn-line" id="repSave">이미지 저장</button></span>
+        <span class="sep"></span><button type="button" class="btn-line" id="repCfgBtn">양식 설정</button><button type="button" class="btn-line" id="repCopy">이미지 복사</button><button type="button" class="btn-line hidden" id="repShare">공유</button><button type="button" class="btn-line" id="repSave">이미지 저장</button></span>
     </div>
     <div class="rep-status" id="repStatus"></div>
     <div class="tbox" id="repBox"></div>
@@ -677,7 +682,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const v = (id) => { const el = document.getElementById(id); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
     const X = S.ex || {};
     return [S.tab, S.floor, S.day, S.hall, S.range, S.range === 'day' ? '' : S.period, S.onlyAbsent, S.q, v('fTeacher'), v('fStatus'),
-      S.absMode, S.absP, S.absF, v('absT'), v('absAllDay'), S.smsR, S.smsF, v('smsT'), v('smsOut'), v('kioKind'), v('kioQ'), S.repP, S.repScope,
+      S.absMode, S.absP, S.absF, v('absT'), v('absAllDay'), S.smsR, S.smsF, v('smsT'), v('smsOut'), v('kioKind'), v('kioQ'), S.repP, S.repForm, S.repScope,
       X.id, X.room, X.hall, X.view, X.sub, X.mode, X.onlyMiss, X.q, S.sl && [S.sl.range, S.sl.range === 'day' ? '' : S.sl.period, S.sl.hall, S.sl.only, S.sl.q, S.sl.f].join('/'), S.ed && [S.ed.month, S.ed.view, S.ed.hall, S.ed.t, S.ed.q, S.ed.zero].join('/')].join('|');
   }
   let scrollDepth = 0, lastViewKey = '';
@@ -715,7 +720,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (S.tab === 'att') return `${S.hall === 'all' ? '전체 관' : S.hall + '관'} · ${S.range === 'day' ? '하루 전체' : (S.period + 1) + '교시'}${S.onlyAbsent ? ' · 결석만' : ''}`;
     if (S.tab === 'abs') return S.absMode === 'sms' ? `${S.smsR || ''}교시 문자 명단` : `${(S.absP ?? 0) + 1}교시 미등원`;
     if (S.tab === 'exam') return `${X.room || '전체 고사장'}${X.hall && X.hall !== 'all' ? ' · ' + X.hall : ''} · ${X.view === 'sub' && X.data ? X.data.exam.subjects[X.sub] : '전 과목'}`;
-    if (S.tab === 'rep') return `${S.repScope === 'all' ? '전층 ' : ''}${(S.repP ?? 1) + 1}교시 인원보고`;
+    if (S.tab === 'rep') return `${S.repScope === 'all' ? '전층 ' : ''}${S.repForm ? repFormObj().name + ' ' : ''}인원보고`;
     if (S.tab === 'edu') return `교육점수 · ${{ all: '전체', sleep: '취침 주의', late: '지각 주의', top: '10점 이상' }[S.ed.view]}${S.ed.hall === 'all' ? '' : ' · ' + S.ed.hall + '관'}`;
     if (S.tab === 'sleep') return `순찰 · ${S.sl.hall === 'all' ? '전체 관' : S.sl.hall + '관'} · ${S.sl.range === 'day' ? '하루 전체' : (S.sl.period + 1) + '교시'}`;
     return '';
@@ -1375,13 +1380,100 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   // ---------- 인원보고 (2교시 · 7교시) ----------
   //  한 학생은 한 칸에만 들어가요:  재원 = 출석 소계(자습·원내·원외·학교·스케쥴) + 무단(지각·결석) + 조퇴 + 개인일정
   //  수기 입력: 칸 숫자를 직접 고칠 수 있어요 (자동 값은 옆에 작게). [저장]을 누르면 DB에 남아요.
-  const REP_COLS = [
+  const REP_BASE = [
     ['self', '자습'], ['inner', '원내\n수업'], ['outer', '원외\n수업'], ['school', '학교'], ['sched', '스케쥴'],
     ['late', '지각'], ['absent', '결석'], ['early', '조퇴'], ['personal', '개인\n일정']];
-  const REP_ATT = ['self', 'inner', 'outer', 'school', 'sched'];
-  const REP_ADJ = ['self', 'inner', 'outer', 'school', 'sched', 'late', 'absent', 'early'];   // 수동 입력 칸 (개인일정은 나머지)
+  let REP_COLS = REP_BASE;                                            // 양식에 선택자습 칸이 있으면 스케쥴 다음에 끼워요
+  let REP_ATT = ['self', 'inner', 'outer', 'school', 'sched'];
+  let REP_ADJ = ['self', 'inner', 'outer', 'school', 'sched', 'late', 'absent', 'early'];   // 수동 입력 칸 (개인일정은 나머지)
   S.repP = null; S.rep = { key: '', saved: null, ov: {}, dirty: false, edit: false };
-  function repSession(P) { return P === 1 ? [0, 1] : [P]; }       // 2교시 보고: 1~2교시 지각 / 7교시 보고: 7교시 지각
+  function repSession(P) { return P === 1 ? [0, 1] : [P]; }
+  // ---------- 인원보고 양식 설정 (평일오전 · 평일오후 · 공휴일오전 · 공휴일오후 · 선택자습일 …) ----------
+  const REP_CFG_DEFAULT = {
+    floors: [{ f: 3, kind: 'N수', seats: 327 }, { f: 4, kind: 'N수', seats: 326 }, { f: 5, kind: '재학', seats: 376 }, { f: 6, kind: '고1/고2', seats: 148 }, { f: 7, kind: 'N수', seats: 160 }],
+    groups: [[3, 4], [3, 4, 5], [6, 7]],
+    forms: [
+      { id: 'wd_am', name: '평일오전', period: 2, opt: false, total: [3, 4, 7], days: 'weekday', half: 'am' },
+      { id: 'wd_pm', name: '평일오후', period: 7, opt: false, total: [3, 4, 5, 7], days: 'weekday', half: 'pm' },
+      { id: 'hd_am', name: '공휴일오전', period: 2, opt: true, total: [3, 4, 5, 7], days: 'holiday', half: 'am' },
+      { id: 'hd_pm', name: '공휴일오후', period: 7, opt: true, total: [3, 4, 5, 7], days: 'holiday', half: 'pm' },
+      { id: 'opt', name: '선택자습일', period: 7, opt: true, total: [3, 4, 5, 7], days: '', half: '' }] };
+  S.repCfg = null; S.repForm = null;
+  const repCfg = () => S.repCfg || REP_CFG_DEFAULT;
+  const repFormObj = () => repCfg().forms.find(f => f.id === S.repForm) || repCfg().forms[0];
+  async function loadRepCfg() {
+    try { const { data, error } = await db.rpc('work_report_cfg_get'); if (error) throw error; if (data && data.forms) { S.repCfg = data; if (S.tab === 'rep') renderRep(); } } catch (e) {}
+  }
+  function repAutoForm() {
+    const forms = repCfg().forms, dow = new Date(S.day + 'T00:00:00Z').getUTCDay();
+    const days = dow === 0 || dow === 6 ? 'holiday' : 'weekday';
+    const half = !isToday() || currentPeriodIdx() >= 4 ? 'pm' : 'am';
+    return (forms.find(f => f.days === days && f.half === half) || forms.find(f => f.days === days) || forms[0]).id;
+  }
+  function repApplyForm() {
+    const F = repFormObj(); S.repForm = F.id; S.repP = Math.max(0, Math.min(7, (+F.period || 2) - 1));
+    REP_COLS = F.opt ? [...REP_BASE.slice(0, 5), ['opt', '선택\n자습'], ...REP_BASE.slice(5)] : REP_BASE;
+    REP_ATT = ['self', 'inner', 'outer', 'school', 'sched'].concat(F.opt ? ['opt'] : []);
+    REP_ADJ = REP_ATT.concat(['late', 'absent', 'early']);
+    return F;
+  }
+  function openRepCfg() {
+    const C = JSON.parse(JSON.stringify(repCfg())); delete C._by; delete C._at;
+    const d = $('smsDlg');
+    const flList = () => C.floors.map(x => x.f);
+    const draw = () => {
+      d.innerHTML = `<div class="sheet-box" style="max-width:760px"><div class="grab"></div>
+        <div class="sh-head"><div><div class="t1">인원보고</div><div class="t2">양식 설정</div></div></div>
+        <div style="max-height:62vh;overflow:auto;display:flex;flex-direction:column;gap:14px">
+          <div><div class="sh-cap">보고 양식 <small style="font-weight:500;color:var(--sub)">· 고르는 버튼 순서대로</small></div>
+          <div class="rc-list">${C.forms.map((F, i) => `<div class="rc-form" data-i="${i}">
+            <input class="rc-name" data-k="name" value="${esc(F.name)}" aria-label="양식 이름" placeholder="양식 이름">
+            <label class="ctl">교시 <select data-k="period">${[1, 2, 3, 4, 5, 6, 7, 8].map(p => `<option ${+F.period === p ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+            <label class="chk"><input type="checkbox" data-k="opt" ${F.opt ? 'checked' : ''}> 선택자습 칸</label>
+            <label class="ctl">자동 선택 <select data-k="auto"><option value="">안 함</option>${[['weekday|am', '평일 오전'], ['weekday|pm', '평일 오후'], ['holiday|am', '주말 오전'], ['holiday|pm', '주말 오후']].map(([v, l]) => `<option value="${v}" ${`${F.days}|${F.half}` === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            <span class="rc-tot">총합 층 ${flList().map(f => `<label class="chk"><input type="checkbox" data-tf="${f}" ${(F.total || []).includes(f) ? 'checked' : ''}>${f}층</label>`).join('')}</span>
+            <span class="rc-mv"><button type="button" class="btn-line" data-up="${i}" ${i ? '' : 'disabled'} aria-label="위로">▲</button><button type="button" class="btn-line" data-del="${i}">삭제</button></span>
+          </div>`).join('')}</div>
+          <button type="button" class="btn-line" data-addform style="margin-top:6px">+ 양식 추가</button></div>
+          <div><div class="sh-cap">층 구성 <small style="font-weight:500;color:var(--sub)">· 전층 보고의 구분 · 좌석 수</small></div>
+          <div class="rc-list">${C.floors.map((x, i) => `<div class="rc-floor" data-fi="${i}"><b>${x.f}층</b>
+            <label class="ctl">구분 <input data-fk="kind" value="${esc(x.kind || '')}" style="width:90px"></label>
+            <label class="ctl">좌석 <input data-fk="seats" type="number" min="0" value="${+x.seats || 0}" style="width:80px"></label>
+            <button type="button" class="btn-line" data-fdel="${i}">빼기</button></div>`).join('')}</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:6px"><select id="rcAddF">${[1, 2, 3, 4, 5, 6, 7, 8, 9].filter(f => !flList().includes(f)).map(f => `<option>${f}</option>`).join('')}</select><button type="button" class="btn-line" data-addfloor>층 추가</button></div>
+          <label class="ctl" style="margin-top:8px">합계 묶음 <input id="rcGroups" value="${esc(C.groups.map(g => g.join('/')).join(', '))}" style="width:240px" placeholder="3/4, 3/4/5, 6/7"></label>
+          <p class="sms-note" style="margin:4px 0 0">묶음은 쉼표로 나눠요. 예: <b>3/4, 3/4/5, 6/7</b> → 3/4층 · 3/4/5층 · 6/7층 합계 줄</p></div>
+          <p class="sms-note" style="margin:0"><b>선택자습 칸</b>을 켜면 스케줄 제목에 <b>선택자습</b>이 들어간 학생이 선택자습으로 세져요. <b>자동 선택</b>은 날짜와 시간에 맞춰 처음 열 때 고를 양식이에요.${S.repCfg && S.repCfg._at ? ` · 마지막 수정 ${esc(S.repCfg._at)} ${esc(S.repCfg._by || '')}` : ''}</p>
+        </div>
+        <div style="display:flex;gap:8px"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button><button type="button" class="btn-dark" data-save>저장</button></div></div>`;
+    };
+    const read = () => {
+      d.querySelectorAll('.rc-form').forEach(el => { const F = C.forms[+el.dataset.i];
+        F.name = el.querySelector('[data-k="name"]').value.trim(); F.period = +el.querySelector('[data-k="period"]').value; F.opt = el.querySelector('[data-k="opt"]').checked;
+        const [dy, hf] = el.querySelector('[data-k="auto"]').value.split('|'); F.days = dy || ''; F.half = hf || '';
+        F.total = [...el.querySelectorAll('[data-tf]')].filter(c => c.checked).map(c => +c.dataset.tf); });
+      d.querySelectorAll('.rc-floor').forEach(el => { const x = C.floors[+el.dataset.fi]; x.kind = el.querySelector('[data-fk="kind"]').value.trim(); x.seats = Math.max(0, +el.querySelector('[data-fk="seats"]').value || 0); });
+      const g = $('rcGroups'); if (g) C.groups = g.value.split(',').map(s => s.split('/').map(n => +n.trim()).filter(n => flList().includes(n))).filter(a => a.length >= 2);
+    };
+    draw(); d.classList.remove('hidden');
+    d.onclick = async (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) { d.classList.add('hidden'); d.innerHTML = ''; return; }
+      const t = ev.target.closest('button'); if (!t) return;
+      if (t.matches('[data-addform]')) { read(); C.forms.push({ id: 'f' + Date.now().toString(36), name: '새 양식', period: 7, opt: false, total: flList(), days: '', half: '' }); draw(); return; }
+      if (t.matches('[data-del]')) { read(); if (C.forms.length < 2) return toast('양식이 하나는 있어야 해요.', { err: true }); C.forms.splice(+t.dataset.del, 1); draw(); return; }
+      if (t.matches('[data-up]')) { read(); const i = +t.dataset.up; [C.forms[i - 1], C.forms[i]] = [C.forms[i], C.forms[i - 1]]; draw(); return; }
+      if (t.matches('[data-fdel]')) { read(); const f = C.floors[+t.dataset.fdel].f; C.floors.splice(+t.dataset.fdel, 1); C.forms.forEach(F => { F.total = (F.total || []).filter(x => x !== f); }); draw(); return; }
+      if (t.matches('[data-addfloor]')) { read(); const f = +$('rcAddF').value; if (!f) return; C.floors.push({ f, kind: '', seats: 0 }); C.floors.sort((a, b) => a.f - b.f); draw(); return; }
+      if (t.matches('[data-save]')) {
+        read(); if (C.forms.some(F => !F.name)) return toast('양식 이름을 넣어 주세요.', { err: true });
+        t.disabled = true;
+        try { const { error } = await db.rpc('work_report_cfg_set', { p_cfg: C }); if (error) throw error;
+          S.repCfg = C; toast('양식 설정을 저장했어요.'); d.classList.add('hidden'); d.innerHTML = ''; S.rep.key = ''; S.repAll.at = 0; loadRepCfg(); renderRep();
+        } catch (err) { t.disabled = false; toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
+      }
+    };
+  }
+       // 2교시 보고: 1~2교시 지각 / 7교시 보고: 7교시 지각
   function repMoveCat(reason) {
     if (reason.includes('조퇴')) return 'early';
     if (reason.includes('외부')) return 'outer';
@@ -1392,6 +1484,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   }
   function repSchedCat(x) {
     const t = x.title || '';
+    if (/선택\s*자습/.test(t)) return REP_ATT.includes('opt') ? 'opt' : 'personal';   // 스케줄 제목에 "선택자습"
     if (x.source === 'lecture' || t.includes('러셀')) return 'inner';
     if (t.includes('학교')) return 'school';
     if (/병원|치과|진료|개인/.test(t)) return 'sched';
@@ -1408,7 +1501,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const early = moves.find(m => (m.reason || '').includes('조퇴'));
     if (early) return { cat: 'early', why: early.text };
     const sch = schedOf(r, P);
-    if (sch.length) { const order = ['inner', 'school', 'sched', 'outer']; const cats = sch.map(repSchedCat); return { cat: order.find(o => cats.includes(o)), why: sch.map(x => x.title).join(', ') }; }
+    if (sch.length) { const order = ['inner', 'school', 'sched', 'outer', 'opt', 'personal']; const cats = sch.map(repSchedCat); return { cat: order.find(o => cats.includes(o)), why: sch.map(x => x.title).join(', ') }; }
     if (moves.length) { const m = moves[0]; return { cat: repMoveCat(m.reason || ''), why: m.text }; }
     const sv = ex.find(x => x.type === 'survey'); if (sv) return { cat: 'personal', why: sv.text };
     const before = [...Array(P).keys()].some(i => codeOf(r, i) !== '3');
@@ -1445,12 +1538,12 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   }
   async function loadRep(force) {
     const P = S.repP; if (P === null) return;
-    const key = `${S.day}|${S.floor}|${P}`;
+    const key = `${S.day}|${S.floor}|${P}|${S.repForm}`;
     if (!force && S.rep.key === key && (S.rep.dirty || Date.now() - (S.rep.at || 0) < 60e3)) return;
     if (S.rep.key !== key) S.rep = { key, saved: null, ov: {}, dirty: false, loading: true };
     S.rep.at = Date.now();
     try {
-      const { data, error } = await db.rpc('work_report_get', { p_day: S.day, p_floor: S.floor, p_period: P + 1 });
+      const { data, error } = await db.rpc('work_report_get', { p_day: S.day, p_floor: S.floor, p_period: P + 1, p_form: S.repForm });
       if (error) throw error;
       if (S.rep.key !== key || S.rep.dirty) return;
       S.rep.saved = data; S.rep.ov = JSON.parse(JSON.stringify((data && data.overrides) || {})); S.rep.loading = false;
@@ -1458,10 +1551,12 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     } catch (e) { if (S.rep.key === key) { S.rep.loading = false; S.rep.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '저장본을 불러오지 못했어요.'); if (S.tab === 'rep') renderRep(); } }
   }
   function renderRep() {
-    if (S.repP === null) S.repP = isToday() && currentPeriodIdx() >= 4 ? 6 : 1;
-    loadRep();
+    if (!S.repCfg && !S.repCfgAsked) { S.repCfgAsked = true; loadRepCfg(); }
+    if (!S.repForm || !repCfg().forms.some(f => f.id === S.repForm)) S.repForm = repAutoForm();
+    const F = repApplyForm();
+    if (S.repScope !== 'all') loadRep();
     const R = S.rep;
-    $('repSeg').innerHTML = [1, 6].map(p => `<button type="button" data-rp="${p}" class="${S.repP === p ? 'on' : ''}" aria-pressed="${S.repP === p}">${p + 1}교시 보고</button>`).join('');
+    $('repSeg').innerHTML = repCfg().forms.map(f => `<button type="button" data-rf="${esc(f.id)}" class="${f.id === F.id ? 'on' : ''}" aria-pressed="${f.id === F.id}">${esc(f.name)} <small>${+f.period}교시</small></button>`).join('');
     $('repSaveDb').textContent = R.dirty ? '저장 *' : '저장';
     $('repScope').innerHTML = [['floor', `${S.floor}층`], ['all', '전층']].map(([k, l]) => `<button type="button" data-rs="${k}" class="${S.repScope === k ? 'on' : ''}" aria-pressed="${S.repScope === k}">${l}</button>`).join('');
     $('repSaveDb').classList.toggle('hidden', S.repScope === 'all');
@@ -1472,7 +1567,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const { rows, tot } = repCompute(P);
     const now = new Date(serverNow() + 9 * 3600e3);
     S.repStamp = isToday() ? `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} 기준` : '하루 마감 기준';
-    $('repNote').textContent = `${S.floor}층 · ${dayLabel(S.day)} · ${P + 1}교시 · ${S.repStamp}`;
+    $('repNote').textContent = `${S.floor}층 · ${F.name} · ${dayLabel(S.day)} · ${P + 1}교시 · ${S.repStamp}`;
     const nMan = rows.reduce((a, r) => a + Object.keys(r.adj).length, 0);
     $('repStatus').innerHTML = [
       R.loading ? '<span>저장본 확인 중…</span>' : R.saved?.at ? `<span class="ok">✓ ${esc(R.saved.at)} ${esc(R.saved.by || '')} 저장</span>` : '<span>아직 저장 안 함</span>',
@@ -1492,35 +1587,37 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const tr = (row, i, cls) => `<tr class="${cls || ''} ${row.off ? 'off' : ''}"><th scope="row">${esc(row.t)}</th>${cell(row, 'n', i)}<td class="sub">${row.v.sub}</td>${REP_COLS.map(([k]) => cell(row, k, i)).join('')}<td class="gap"></td>${REP_ADJ.map(k => adjCell(row, k, i)).join('')}<td class="adj sum">${sign(row.adjSum)}</td></tr>`;
     const adjHead = REP_ADJ.map(k => `<th class="adj">${REP_COLS.find(c => c[0] === k)[1].replace('\n', '<br>')}</th>`).join('');
     $('repBox').innerHTML = `<table class="rep">
-      <thead><tr><th rowspan="2">담임</th><th rowspan="2">재원생</th><th colspan="6">출석 인원</th><th colspan="2">무단 인원</th><th rowspan="2">조퇴</th><th rowspan="2">개인<br>일정</th>
+      <thead><tr><th rowspan="2">담임</th><th rowspan="2">재원생</th><th colspan="${REP_ATT.length + 1}">출석 인원</th><th colspan="2">무단 인원</th><th rowspan="2">조퇴</th><th rowspan="2">개인<br>일정</th>
           <th rowspan="2" class="gap"></th><th colspan="${REP_ADJ.length + 1}" class="adj">[수동 입력] 수식 · 연동 오류 시 입력 (+/−)</th></tr>
-        <tr><th>소계</th>${REP_COLS.slice(0, 7).map(([, l]) => `<th>${l.replace('\n', '<br>')}</th>`).join('')}${adjHead}<th class="adj">합계</th></tr></thead>
+        <tr><th>소계</th>${REP_COLS.slice(0, REP_ATT.length + 2).map(([, l]) => `<th>${l.replace('\n', '<br>')}</th>`).join('')}${adjHead}<th class="adj">합계</th></tr></thead>
       <tbody>${rows.map((r, i) => tr(r, i)).join('')}${tr(tot, 'tot', 'tot')}</tbody></table>`;
     S.repData = { rows, tot, P };
   }
   // ---------- 전층 인원보고: 각 층이 [저장]한 보고를 모아서 ----------
-  const RA_FLOORS = [1, 3, 4, 5, 6, 7];
-  const RA_MAIN = [3, 4, 5];                                   // 저장 안 했어도 자리 표시
-  const RA_KIND = { 3: 'N수', 4: 'N수', 5: '재학', 6: '고1/고2', 7: '고2' };
-  const RA_GROUPS = [[3, 4], [3, 4, 5], [6, 7]];               // 엑셀 양식의 3/4층 · 3/4/5층 · 6/7층 합계
-  const RA_KEYS = ['n', 'sub', ...REP_COLS.map(c => c[0])];
+  //  층 · 구분 · 좌석 · 합계 묶음 · 총합에 넣을 층은 [양식 설정]에서
+  const raKind = (f) => (repCfg().floors.find(x => x.f === f) || {}).kind || '';
+  const raSeats = (f) => +(repCfg().floors.find(x => x.f === f) || {}).seats || 0;
+  const raKeys = () => ['n', 'sub', ...REP_COLS.map(c => c[0])];
   S.repScope = 'floor'; S.repAll = { key: '', data: null, at: 0 };
   async function loadRepAll(force) {
-    const key = `${S.day}|${S.repP}`;
+    const key = `${S.day}|${S.repP}|${S.repForm}`;
     if (!force && S.repAll.key === key && Date.now() - S.repAll.at < 30e3) return;
     if (S.repAll.key !== key) S.repAll = { key, data: null, at: 0 };
     S.repAll.at = Date.now();
     try {
-      const { data, error } = await db.rpc('work_report_all', { p_day: S.day, p_period: S.repP + 1 }); if (error) throw error;
+      const { data, error } = await db.rpc('work_report_all', { p_day: S.day, p_period: S.repP + 1, p_form: S.repForm }); if (error) throw error;
       if (S.repAll.key !== key) return; S.repAll.data = data || []; S.repAll.err = '';
     } catch (e) { if (S.repAll.key === key) S.repAll.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'); }
     if (S.tab === 'rep' && S.repScope === 'all') renderRep();
   }
   function repAllModel() {
     const by = {}; (S.repAll.data || []).forEach(x => { by[x.floor] = x; });
-    const floors = RA_FLOORS.filter(f => by[f] || RA_MAIN.includes(f));
-    const zero = () => Object.fromEntries(RA_KEYS.map(k => [k, 0]));
-    const add = (a, b) => RA_KEYS.forEach(k => { a[k] += +(b[k] || 0); });
+    const F = repFormObj(), C = repCfg(), total = F.total || [], KEYS = raKeys();
+    // 총합에 들어가는 층은 저장 안 했어도 자리 표시, 그 밖의 층은 저장했을 때만
+    const floors = C.floors.map(x => x.f).filter(f => by[f] || total.includes(f));
+    Object.keys(by).map(Number).forEach(f => { if (!floors.includes(f)) floors.push(f); }); floors.sort((a, b) => a - b);
+    const zero = () => Object.fromEntries(KEYS.map(k => [k, 0]));
+    const add = (a, b) => KEYS.forEach(k => { a[k] += +(b[k] || 0); });
     const fl = {}, lines = [];
     floors.forEach(f => {
       const x = by[f];
@@ -1528,38 +1625,40 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       else {
         const rows = (x.snapshot.rows || []).filter(r => r.t !== '합계');
         const v = zero(); rows.forEach(r => add(v, r));
-        fl[f] = { v, seats: x.snapshot.seats || 0 };
+        fl[f] = { v };
         rows.forEach((r, i) => lines.push({ kind: 'row', f, t: r.t, v: r, first: i === 0, span: rows.length }));
-        lines.push({ kind: 'sub', f, v, label: fl[f].seats ? `${fl[f].seats}석` : `${f}층 계` });
+        lines.push({ kind: 'sub', f, v, label: raSeats(f) ? `${raSeats(f)}석` : `${f}층 계` });
       }
-      RA_GROUPS.forEach(g => {
+      (C.groups || []).forEach(g => {
         if (g[g.length - 1] !== f) return; const have = g.filter(k => floors.includes(k)); if (have.length < 2) return;
-        const v = zero(); let seats = 0, ok = true; have.forEach(k => { if (fl[k]) { add(v, fl[k].v); seats += fl[k].seats; if (!fl[k].seats) ok = false; } else ok = false; });
-        lines.push({ kind: 'grp', v, label: `${have.join('/')}층${ok ? ` ${seats}석` : ''}` });
+        const v = zero(); have.forEach(k => { if (fl[k]) add(v, fl[k].v); });
+        const seats = g.reduce((a, k) => a + raSeats(k), 0);
+        lines.push({ kind: 'grp', v, label: `${g.join('/')}층${seats ? ` ${seats}석` : ''}` });
       });
     });
-    const v = zero(); let seats = 0, ok = true; floors.forEach(f => { if (fl[f]) { add(v, fl[f].v); seats += fl[f].seats; if (!fl[f].seats) ok = false; } else ok = false; });
-    lines.push({ kind: 'tot', v, label: ok ? `총 ${seats}석` : '전층 합계' });
-    return { lines, by, floors };
+    const v = zero(); total.forEach(f => { if (fl[f]) add(v, fl[f].v); });
+    const seats = total.reduce((a, f) => a + raSeats(f), 0);
+    lines.push({ kind: 'tot', v, label: seats ? `총 ${seats}석` : '전층 합계' });
+    return { lines, by, floors, total };
   }
   function renderRepAll() {
     loadRepAll();
     const P = S.repP, A = S.repAll;
-    $('repNote').textContent = `전층 · ${dayLabel(S.day)} · ${P + 1}교시 · 각 층 저장본 기준`;
+    $('repNote').textContent = `전층 · ${repFormObj().name} · ${dayLabel(S.day)} · ${P + 1}교시 · 각 층 저장본 기준`;
     if (!A.data) { $('repStatus').innerHTML = A.err ? `<span class="warn">${esc(A.err)}</span>` : '<span>불러오는 중…</span>'; $('repBox').innerHTML = ''; S.repAllM = null; return; }
     const M = repAllModel(); S.repAllM = M;
-    $('repStatus').innerHTML = M.floors.map(f => M.by[f] ? `<span class="ok">${f}층 ✓ ${esc(M.by[f].at)} ${esc(M.by[f].by || '')}</span>` : `<span class="warn">${f}층 아직 저장 안 함</span>`).join('')
-      + `<span>각 층에서 <b>저장</b>을 눌러야 여기에 모여요 · 30초마다 새로 불러와요</span>` + (A.err ? `<span class="warn">${esc(A.err)}</span>` : '');
-    const nums = (v, strong) => [v.n, v.sub, ...REP_COLS.map(([k]) => v[k])].map((x, i) => {
+    $('repStatus').innerHTML = M.floors.filter(f => M.by[f] || M.total.includes(f)).map(f => M.by[f] ? `<span class="ok">${f}층 ✓ ${esc(M.by[f].at)} ${esc(M.by[f].by || '')}</span>` : `<span class="warn">${f}층 아직 저장 안 함</span>`).join('')
+      + `<span>각 층에서 같은 양식(<b>${esc(repFormObj().name)}</b>)으로 <b>저장</b>해야 여기에 모여요 · 총합: ${M.total.map(f => f + '층').join(' · ')} · 30초마다 새로 불러와요</span>` + (A.err ? `<span class="warn">${esc(A.err)}</span>` : '');
+    const nums = (v, strong) => [v.n, v.sub, ...REP_COLS.map(([k]) => v[k])].map(x => +x || 0).map((x, i) => {
       const k = i >= 2 ? REP_COLS[i - 2][0] : ''; return `<td class="${x ? 'ra-n' : 'rp-z'} ${(k === 'late' || k === 'absent') && x ? 'ra-red' : ''}">${x}</td>`; }).join('');
     const body = M.lines.map(L => {
-      if (L.kind === 'miss') return `<tr class="ra-miss"><th scope="row" class="ra-g">${L.f}층<br><small>(${esc(RA_KIND[L.f] || '')})</small></th><td colspan="${RA_KEYS.length + 1}">아직 저장 안 함 — ${L.f}층에서 인원보고를 <b>저장</b>해 주세요</td></tr>`;
-      if (L.kind === 'row') return `<tr>${L.first ? `<th scope="rowgroup" rowspan="${L.span}" class="ra-g">${L.f}층${RA_KIND[L.f] ? `<br><small>(${RA_KIND[L.f]})</small>` : ''}</th>` : ''}<th scope="row">${esc(L.t)}</th>${nums(L.v)}</tr>`;
+      if (L.kind === 'miss') return `<tr class="ra-miss"><th scope="row" class="ra-g">${L.f}층${raKind(L.f) ? `<br><small>(${esc(raKind(L.f))})</small>` : ''}</th><td colspan="${raKeys().length + 1}">아직 저장 안 함 — ${L.f}층에서 인원보고를 <b>저장</b>해 주세요</td></tr>`;
+      if (L.kind === 'row') return `<tr>${L.first ? `<th scope="rowgroup" rowspan="${L.span}" class="ra-g">${L.f}층${raKind(L.f) ? `<br><small>(${esc(raKind(L.f))})</small>` : ''}</th>` : ''}<th scope="row">${esc(L.t)}</th>${nums(L.v)}</tr>`;
       return `<tr class="ra-${L.kind}"><th scope="row" colspan="2">${esc(L.label)}</th>${nums(L.v)}</tr>`;
     }).join('');
     $('repBox').innerHTML = `<table class="rep ra">
-      <thead><tr><th rowspan="2">구분</th><th rowspan="2">담임</th><th rowspan="2">재원생</th><th colspan="6">출석 인원</th><th colspan="2">무단 인원</th><th rowspan="2">조퇴</th><th rowspan="2">개인<br>일정</th></tr>
-        <tr><th>소계</th>${REP_COLS.slice(0, 7).map(([, l]) => `<th>${l.replace('\n', '<br>')}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+      <thead><tr><th rowspan="2">구분</th><th rowspan="2">담임</th><th rowspan="2">재원생</th><th colspan="${REP_ATT.length + 1}">출석 인원</th><th colspan="2">무단 인원</th><th rowspan="2">조퇴</th><th rowspan="2">개인<br>일정</th></tr>
+        <tr><th>소계</th>${REP_COLS.slice(0, REP_ATT.length + 2).map(([, l]) => `<th>${l.replace('\n', '<br>')}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
   }
   function repAllCanvas() {
     const M = S.repAllM; if (!M) return null;
@@ -1576,17 +1675,18 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const wOf = (a, b) => xs[b] + cols[b][1] - xs[a];
     const HB = '#F3F4F6'; let y = Mg;
     [[0, '구분'], [1, '담임'], [2, '재원생']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
-    box(xs[3], y, wOf(3, 8), headH, HB); text('출석 인원', xs[3], y, wOf(3, 8), headH, { w: 700 });
-    box(xs[9], y, wOf(9, 10), headH, HB); text('무단 인원', xs[9], y, wOf(9, 10), headH, { w: 700 });
-    [[11, '조퇴'], [12, '개인\n일정']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
-    for (let i = 3; i <= 10; i++) { box(xs[i], y + headH, cols[i][1], headH, HB); text(cols[i][0], xs[i], y + headH, cols[i][1], headH, { w: 700, size: 12 }); }
+    const nA = REP_ATT.length;
+    box(xs[3], y, wOf(3, 3 + nA), headH, HB); text('출석 인원', xs[3], y, wOf(3, 3 + nA), headH, { w: 700 });
+    box(xs[4 + nA], y, wOf(4 + nA, 5 + nA), headH, HB); text('무단 인원', xs[4 + nA], y, wOf(4 + nA, 5 + nA), headH, { w: 700 });
+    [[6 + nA, '조퇴'], [7 + nA, '개인\n일정']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
+    for (let i = 3; i <= 5 + nA; i++) { box(xs[i], y + headH, cols[i][1], headH, HB); text(cols[i][0], xs[i], y + headH, cols[i][1], headH, { w: 700, size: 12 }); }
     y += headH * 2;
     const fills = { sub: '#F5F7FA', grp: '#EEF2FF', tot: '#E0E7FF' };
-    const nums = (v, fill, bold) => [v.n, v.sub, ...REP_COLS.map(([k]) => v[k])].forEach((x, j) => { const i = j + 2; const k = j >= 2 ? REP_COLS[j - 2][0] : '';
+    const nums = (v, fill, bold) => [v.n, v.sub, ...REP_COLS.map(([k]) => v[k])].map(x => +x || 0).forEach((x, j) => { const i = j + 2; const k = j >= 2 ? REP_COLS[j - 2][0] : '';
       box(xs[i], y, cols[i][1], rowH, fill); text(x, xs[i], y, cols[i][1], rowH, { w: bold ? 800 : 600, color: (k === 'late' || k === 'absent') && x ? '#B42318' : (j >= 2 && !x ? '#B6BCC6' : '#15181D') }); });
     lines.forEach(L => {
       if (L.kind === 'row') {
-        if (L.first) { box(xs[0], y, cols[0][1], rowH * L.span); text(`${L.f}층${RA_KIND[L.f] ? `\n(${RA_KIND[L.f]})` : ''}`, xs[0], y, cols[0][1], rowH * L.span, { w: 800 }); }
+        if (L.first) { box(xs[0], y, cols[0][1], rowH * L.span); text(`${L.f}층${raKind(L.f) ? `\n(${raKind(L.f)})` : ''}`, xs[0], y, cols[0][1], rowH * L.span, { w: 800 }); }
         box(xs[1], y, cols[1][1], rowH); text(L.t, xs[1], y, cols[1][1], rowH, { w: 700 }); nums(L.v);
       } else if (L.kind === 'miss') {
         box(xs[0], y, cols[0][1], rowH); text(`${L.f}층`, xs[0], y, cols[0][1], rowH, { w: 800 });
@@ -1596,6 +1696,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     });
     return cv;
   }
+  $('repCfgBtn').onclick = () => openRepCfg();
   $('repScope').onclick = (e) => {
     const b = e.target.closest('[data-rs]'); if (!b || S.repScope === b.dataset.rs) return;
     if (S.rep.dirty && b.dataset.rs === 'all' && !confirm('저장하지 않은 수동 입력이 있어요. 저장하지 않고 넘어갈까요?')) return;
@@ -1618,9 +1719,9 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     };
   }
   $('repSeg').onclick = (e) => {
-    const b = e.target.closest('[data-rp]'); if (!b || S.repP === +b.dataset.rp) return;
+    const b = e.target.closest('[data-rf]'); if (!b || S.repForm === b.dataset.rf) return;
     if (S.rep.dirty && !confirm('저장하지 않은 수동 입력이 있어요. 저장하지 않고 넘어갈까요?')) return;
-    S.repP = +b.dataset.rp; S.rep.dirty = false; if (S.repScope === 'all') loadRepAll(true); renderRep();
+    S.repForm = b.dataset.rf; S.rep.dirty = false; S.repAll.at = 0; renderRep();
   };
   $('repBox').addEventListener('click', (e) => { const c = e.target.closest('[data-rk2]'); if (c) repList(c.dataset.rr, c.dataset.rk2); });
   $('repBox').addEventListener('keydown', (e) => {
@@ -1662,13 +1763,14 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const D = S.repData; if (!D) return;
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('#repBox input')) { document.activeElement.blur(); }
     const D2 = S.repData;
-    const snap = { stamp: S.repStamp, period: D2.P + 1, seats: S.rows.length, rows: [...D2.rows, D2.tot].map(r => ({ t: r.t, ...r.v, adj: r.adj })) };
+    const fl = repCfg().floors.find(x => x.f === S.floor);
+    const snap = { stamp: S.repStamp, period: D2.P + 1, form: S.repForm, formName: repFormObj().name, opt: REP_ATT.includes('opt'), seats: (fl && fl.seats) || S.rows.length, rows: [...D2.rows, D2.tot].map(r => ({ t: r.t, ...r.v, adj: r.adj })) };
     $('repSaveDb').disabled = true;
     try {
-      const { data, error } = await db.rpc('work_report_save', { p_day: S.day, p_floor: S.floor, p_period: D2.P + 1, p_overrides: S.rep.ov, p_snapshot: snap });
+      const { data, error } = await db.rpc('work_report_save', { p_day: S.day, p_floor: S.floor, p_period: D2.P + 1, p_overrides: S.rep.ov, p_snapshot: snap, p_form: S.repForm });
       if (error) throw error;
       S.rep.saved = { ...(S.rep.saved || {}), overrides: JSON.parse(JSON.stringify(S.rep.ov)), by: data.by, at: data.at }; S.rep.dirty = false; S.rep.at = Date.now();
-      toast(`${D2.P + 1}교시 인원보고를 저장했어요.`); S.repAll.at = 0;
+      toast(`${repFormObj().name} ${D2.P + 1}교시 인원보고를 저장했어요.`); S.repAll.at = 0;
     } catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
     $('repSaveDb').disabled = false; renderRep();
   };
@@ -1697,9 +1799,10 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const HB = '#F3F4F6';
     [[0, '담임'], [1, '재원생']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
     const span = (a, b, t) => { const w = xs[b] + cols[b][1] - xs[a]; box(xs[a], y, w, headH, HB); text(t, xs[a], y, w, headH, { w: 700 }); };
-    span(2, 7, '출석 인원'); span(8, 9, '무단 인원');
-    [[10, '조퇴'], [11, '개인\n일정']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
-    for (let i = 2; i <= 9; i++) { box(xs[i], y + headH, cols[i][1], headH, HB); text(cols[i][0], xs[i], y + headH, cols[i][1], headH, { w: 700, size: 12 }); }
+    const nA = REP_ATT.length;                   // 출석 칸 수 (선택자습 칸이 있으면 6)
+    span(2, 2 + nA, '출석 인원'); span(3 + nA, 4 + nA, '무단 인원');
+    [[5 + nA, '조퇴'], [6 + nA, '개인\n일정']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
+    for (let i = 2; i <= 4 + nA; i++) { box(xs[i], y + headH, cols[i][1], headH, HB); text(cols[i][0], xs[i], y + headH, cols[i][1], headH, { w: 700, size: 12 }); }
     y += headH * 2;
     const red = { late: 1, absent: 1 };
     [...D.rows, D.tot].forEach((row, ri) => {
@@ -1714,7 +1817,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     });
     return cv;
   }
-  const repName = () => S.repScope === 'all' ? `인원보고_전층_${S.day}_${S.repP + 1}교시.png` : `인원보고_${S.floor}층_${S.day}_${S.repData.P + 1}교시.png`;
+  const repName = () => `인원보고_${S.repScope === 'all' ? '전층' : S.floor + '층'}_${S.day}_${repFormObj().name}_${S.repP + 1}교시.png`;
   const repImg = () => S.repScope === 'all' ? repAllCanvas() : repCanvas();
   const repBlob = (cv) => new Promise(res => cv.toBlob(res, 'image/png'));
   $('repSave').onclick = async () => {
