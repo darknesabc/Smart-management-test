@@ -271,6 +271,10 @@ table.rep thead th{background:#F3F4F6;font-size:12px;font-weight:700;line-height
 table.rep tbody th{font-weight:700;white-space:nowrap}
 table.rep td.sub{font-weight:800}
 table.rep td.rp-z{color:#C3C8D0}
+table.rep.ra td.ra-n{font-weight:700} table.rep.ra td.ra-red{color:var(--late)}
+table.rep.ra th.ra-g{background:#FAFAFB;font-weight:800;min-width:72px} table.rep.ra th.ra-g small{font-weight:600;color:var(--sub)}
+table.rep.ra tr.ra-sub > *{background:#F5F7FA;font-weight:800} table.rep.ra tr.ra-grp > *{background:#EEF2FF;font-weight:800} table.rep.ra tr.ra-tot > *{background:#E0E7FF;font-weight:800}
+table.rep.ra tr.ra-miss td{background:#FFF7ED;color:#9A3412;text-align:center}
 table.rep td.rp-n{cursor:pointer;font-weight:700}
 table.rep td.rp-n:hover,table.rep td.rp-n:focus{background:var(--okSoft);outline:none}
 table.rep td.rp-n.c-late,table.rep td.rp-n.c-absent{color:var(--late)}
@@ -567,6 +571,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 
   <main id="viewRep" class="hidden">
     <div class="toolbar">
+      <div class="seg" id="repScope" role="group" aria-label="범위"></div>
       <div class="seg" id="repSeg" role="group" aria-label="보고 교시"></div>
       <span id="repNote" style="font-size:13px;color:var(--sub)"></span>
       <span class="rep-acts"><button type="button" class="btn-dark" id="repSaveDb">저장</button>
@@ -672,7 +677,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const v = (id) => { const el = document.getElementById(id); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
     const X = S.ex || {};
     return [S.tab, S.floor, S.day, S.hall, S.range, S.range === 'day' ? '' : S.period, S.onlyAbsent, S.q, v('fTeacher'), v('fStatus'),
-      S.absMode, S.absP, S.absF, v('absT'), v('absAllDay'), S.smsR, S.smsF, v('smsT'), v('smsOut'), v('kioKind'), v('kioQ'), S.repP,
+      S.absMode, S.absP, S.absF, v('absT'), v('absAllDay'), S.smsR, S.smsF, v('smsT'), v('smsOut'), v('kioKind'), v('kioQ'), S.repP, S.repScope,
       X.id, X.room, X.hall, X.view, X.sub, X.mode, X.onlyMiss, X.q, S.sl && [S.sl.range, S.sl.range === 'day' ? '' : S.sl.period, S.sl.hall, S.sl.only, S.sl.q, S.sl.f].join('/'), S.ed && [S.ed.month, S.ed.view, S.ed.hall, S.ed.t, S.ed.q, S.ed.zero].join('/')].join('|');
   }
   let scrollDepth = 0, lastViewKey = '';
@@ -710,7 +715,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (S.tab === 'att') return `${S.hall === 'all' ? '전체 관' : S.hall + '관'} · ${S.range === 'day' ? '하루 전체' : (S.period + 1) + '교시'}${S.onlyAbsent ? ' · 결석만' : ''}`;
     if (S.tab === 'abs') return S.absMode === 'sms' ? `${S.smsR || ''}교시 문자 명단` : `${(S.absP ?? 0) + 1}교시 미등원`;
     if (S.tab === 'exam') return `${X.room || '전체 고사장'}${X.hall && X.hall !== 'all' ? ' · ' + X.hall : ''} · ${X.view === 'sub' && X.data ? X.data.exam.subjects[X.sub] : '전 과목'}`;
-    if (S.tab === 'rep') return `${(S.repP ?? 1) + 1}교시 인원보고`;
+    if (S.tab === 'rep') return `${S.repScope === 'all' ? '전층 ' : ''}${(S.repP ?? 1) + 1}교시 인원보고`;
     if (S.tab === 'edu') return `교육점수 · ${{ all: '전체', sleep: '취침 주의', late: '지각 주의', top: '10점 이상' }[S.ed.view]}${S.ed.hall === 'all' ? '' : ' · ' + S.ed.hall + '관'}`;
     if (S.tab === 'sleep') return `순찰 · ${S.sl.hall === 'all' ? '전체 관' : S.sl.hall + '관'} · ${S.sl.range === 'day' ? '하루 전체' : (S.sl.period + 1) + '교시'}`;
     return '';
@@ -845,7 +850,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       await loadExtras();
       if (S.tab === 'kio') loadKio();
       if (S.tab === 'abs' && S.absMode === 'sms') loadSms();
-      if (S.tab === 'rep') loadRep();
+      if (S.tab === 'rep') { if (S.repScope === 'all') loadRepAll(); else loadRep(); }
       if (S.tab === 'exam' && S.ex.list) loadExamSheet();
       if (S.tab === 'sleep') loadSleep();
       if (S.tab === 'edu') loadEdu();
@@ -1458,8 +1463,11 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const R = S.rep;
     $('repSeg').innerHTML = [1, 6].map(p => `<button type="button" data-rp="${p}" class="${S.repP === p ? 'on' : ''}" aria-pressed="${S.repP === p}">${p + 1}교시 보고</button>`).join('');
     $('repSaveDb').textContent = R.dirty ? '저장 *' : '저장';
+    $('repScope').innerHTML = [['floor', `${S.floor}층`], ['all', '전층']].map(([k, l]) => `<button type="button" data-rs="${k}" class="${S.repScope === k ? 'on' : ''}" aria-pressed="${S.repScope === k}">${l}</button>`).join('');
+    $('repSaveDb').classList.toggle('hidden', S.repScope === 'all');
     const P = S.repP;
     if (P > lastOpenIdx()) { $('repBox').innerHTML = `<div class="empty-note">${P + 1}교시는 아직 시작 전이에요.</div>`; $('repNote').textContent = ''; $('repStatus').innerHTML = ''; return; }
+    if (S.repScope === 'all') return renderRepAll();
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('#repBox input')) return;   // 입력 중에는 다시 그리지 않음
     const { rows, tot } = repCompute(P);
     const now = new Date(serverNow() + 9 * 3600e3);
@@ -1490,6 +1498,109 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       <tbody>${rows.map((r, i) => tr(r, i)).join('')}${tr(tot, 'tot', 'tot')}</tbody></table>`;
     S.repData = { rows, tot, P };
   }
+  // ---------- 전층 인원보고: 각 층이 [저장]한 보고를 모아서 ----------
+  const RA_FLOORS = [1, 3, 4, 5, 6, 7];
+  const RA_MAIN = [3, 4, 5];                                   // 저장 안 했어도 자리 표시
+  const RA_KIND = { 3: 'N수', 4: 'N수', 5: '재학', 6: '고1/고2', 7: '고2' };
+  const RA_GROUPS = [[3, 4], [3, 4, 5], [6, 7]];               // 엑셀 양식의 3/4층 · 3/4/5층 · 6/7층 합계
+  const RA_KEYS = ['n', 'sub', ...REP_COLS.map(c => c[0])];
+  S.repScope = 'floor'; S.repAll = { key: '', data: null, at: 0 };
+  async function loadRepAll(force) {
+    const key = `${S.day}|${S.repP}`;
+    if (!force && S.repAll.key === key && Date.now() - S.repAll.at < 30e3) return;
+    if (S.repAll.key !== key) S.repAll = { key, data: null, at: 0 };
+    S.repAll.at = Date.now();
+    try {
+      const { data, error } = await db.rpc('work_report_all', { p_day: S.day, p_period: S.repP + 1 }); if (error) throw error;
+      if (S.repAll.key !== key) return; S.repAll.data = data || []; S.repAll.err = '';
+    } catch (e) { if (S.repAll.key === key) S.repAll.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'); }
+    if (S.tab === 'rep' && S.repScope === 'all') renderRep();
+  }
+  function repAllModel() {
+    const by = {}; (S.repAll.data || []).forEach(x => { by[x.floor] = x; });
+    const floors = RA_FLOORS.filter(f => by[f] || RA_MAIN.includes(f));
+    const zero = () => Object.fromEntries(RA_KEYS.map(k => [k, 0]));
+    const add = (a, b) => RA_KEYS.forEach(k => { a[k] += +(b[k] || 0); });
+    const fl = {}, lines = [];
+    floors.forEach(f => {
+      const x = by[f];
+      if (!x) { fl[f] = null; lines.push({ kind: 'miss', f }); }
+      else {
+        const rows = (x.snapshot.rows || []).filter(r => r.t !== '합계');
+        const v = zero(); rows.forEach(r => add(v, r));
+        fl[f] = { v, seats: x.snapshot.seats || 0 };
+        rows.forEach((r, i) => lines.push({ kind: 'row', f, t: r.t, v: r, first: i === 0, span: rows.length }));
+        lines.push({ kind: 'sub', f, v, label: fl[f].seats ? `${fl[f].seats}석` : `${f}층 계` });
+      }
+      RA_GROUPS.forEach(g => {
+        if (g[g.length - 1] !== f) return; const have = g.filter(k => floors.includes(k)); if (have.length < 2) return;
+        const v = zero(); let seats = 0, ok = true; have.forEach(k => { if (fl[k]) { add(v, fl[k].v); seats += fl[k].seats; if (!fl[k].seats) ok = false; } else ok = false; });
+        lines.push({ kind: 'grp', v, label: `${have.join('/')}층${ok ? ` ${seats}석` : ''}` });
+      });
+    });
+    const v = zero(); let seats = 0, ok = true; floors.forEach(f => { if (fl[f]) { add(v, fl[f].v); seats += fl[f].seats; if (!fl[f].seats) ok = false; } else ok = false; });
+    lines.push({ kind: 'tot', v, label: ok ? `총 ${seats}석` : '전층 합계' });
+    return { lines, by, floors };
+  }
+  function renderRepAll() {
+    loadRepAll();
+    const P = S.repP, A = S.repAll;
+    $('repNote').textContent = `전층 · ${dayLabel(S.day)} · ${P + 1}교시 · 각 층 저장본 기준`;
+    if (!A.data) { $('repStatus').innerHTML = A.err ? `<span class="warn">${esc(A.err)}</span>` : '<span>불러오는 중…</span>'; $('repBox').innerHTML = ''; S.repAllM = null; return; }
+    const M = repAllModel(); S.repAllM = M;
+    $('repStatus').innerHTML = M.floors.map(f => M.by[f] ? `<span class="ok">${f}층 ✓ ${esc(M.by[f].at)} ${esc(M.by[f].by || '')}</span>` : `<span class="warn">${f}층 아직 저장 안 함</span>`).join('')
+      + `<span>각 층에서 <b>저장</b>을 눌러야 여기에 모여요 · 30초마다 새로 불러와요</span>` + (A.err ? `<span class="warn">${esc(A.err)}</span>` : '');
+    const nums = (v, strong) => [v.n, v.sub, ...REP_COLS.map(([k]) => v[k])].map((x, i) => {
+      const k = i >= 2 ? REP_COLS[i - 2][0] : ''; return `<td class="${x ? 'ra-n' : 'rp-z'} ${(k === 'late' || k === 'absent') && x ? 'ra-red' : ''}">${x}</td>`; }).join('');
+    const body = M.lines.map(L => {
+      if (L.kind === 'miss') return `<tr class="ra-miss"><th scope="row" class="ra-g">${L.f}층<br><small>(${esc(RA_KIND[L.f] || '')})</small></th><td colspan="${RA_KEYS.length + 1}">아직 저장 안 함 — ${L.f}층에서 인원보고를 <b>저장</b>해 주세요</td></tr>`;
+      if (L.kind === 'row') return `<tr>${L.first ? `<th scope="rowgroup" rowspan="${L.span}" class="ra-g">${L.f}층${RA_KIND[L.f] ? `<br><small>(${RA_KIND[L.f]})</small>` : ''}</th>` : ''}<th scope="row">${esc(L.t)}</th>${nums(L.v)}</tr>`;
+      return `<tr class="ra-${L.kind}"><th scope="row" colspan="2">${esc(L.label)}</th>${nums(L.v)}</tr>`;
+    }).join('');
+    $('repBox').innerHTML = `<table class="rep ra">
+      <thead><tr><th rowspan="2">구분</th><th rowspan="2">담임</th><th rowspan="2">재원생</th><th colspan="6">출석 인원</th><th colspan="2">무단 인원</th><th rowspan="2">조퇴</th><th rowspan="2">개인<br>일정</th></tr>
+        <tr><th>소계</th>${REP_COLS.slice(0, 7).map(([, l]) => `<th>${l.replace('\n', '<br>')}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  function repAllCanvas() {
+    const M = S.repAllM; if (!M) return null;
+    const cols = [['구분', 92], ['담임', 84], ['재원생', 64], ['소계', 60], ...REP_COLS.map(([, l]) => [l, 58])];
+    const lines = M.lines, rowH = 32, headH = 30, Mg = 2;
+    const W = cols.reduce((a, c) => a + c[1], 0) + Mg * 2, H = headH * 2 + rowH * lines.length + Mg * 2;
+    const s = 2, cv = document.createElement('canvas'); cv.width = W * s; cv.height = H * s;
+    const g = cv.getContext('2d'); g.scale(s, s); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.textBaseline = 'middle';
+    const F = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
+    const xs = []; cols.reduce((x, c) => { xs.push(x); return x + c[1]; }, Mg);
+    const box = (x, y, w, h, fill) => { if (fill) { g.fillStyle = fill; g.fillRect(x, y, w, h); } g.strokeStyle = '#D5D9E0'; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w, h); };
+    const text = (t, x, y, w, h, o = {}) => { g.fillStyle = o.color || '#15181D'; g.font = `${o.w || 600} ${o.size || 13}px ${F}`; g.textAlign = 'center';
+      const ls = String(t).split('\n'); ls.forEach((ln, i) => g.fillText(ln, x + w / 2, y + h / 2 + (i - (ls.length - 1) / 2) * 15)); g.textAlign = 'left'; };
+    const wOf = (a, b) => xs[b] + cols[b][1] - xs[a];
+    const HB = '#F3F4F6'; let y = Mg;
+    [[0, '구분'], [1, '담임'], [2, '재원생']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
+    box(xs[3], y, wOf(3, 8), headH, HB); text('출석 인원', xs[3], y, wOf(3, 8), headH, { w: 700 });
+    box(xs[9], y, wOf(9, 10), headH, HB); text('무단 인원', xs[9], y, wOf(9, 10), headH, { w: 700 });
+    [[11, '조퇴'], [12, '개인\n일정']].forEach(([i, t]) => { box(xs[i], y, cols[i][1], headH * 2, HB); text(t, xs[i], y, cols[i][1], headH * 2, { w: 700 }); });
+    for (let i = 3; i <= 10; i++) { box(xs[i], y + headH, cols[i][1], headH, HB); text(cols[i][0], xs[i], y + headH, cols[i][1], headH, { w: 700, size: 12 }); }
+    y += headH * 2;
+    const fills = { sub: '#F5F7FA', grp: '#EEF2FF', tot: '#E0E7FF' };
+    const nums = (v, fill, bold) => [v.n, v.sub, ...REP_COLS.map(([k]) => v[k])].forEach((x, j) => { const i = j + 2; const k = j >= 2 ? REP_COLS[j - 2][0] : '';
+      box(xs[i], y, cols[i][1], rowH, fill); text(x, xs[i], y, cols[i][1], rowH, { w: bold ? 800 : 600, color: (k === 'late' || k === 'absent') && x ? '#B42318' : (j >= 2 && !x ? '#B6BCC6' : '#15181D') }); });
+    lines.forEach(L => {
+      if (L.kind === 'row') {
+        if (L.first) { box(xs[0], y, cols[0][1], rowH * L.span); text(`${L.f}층${RA_KIND[L.f] ? `\n(${RA_KIND[L.f]})` : ''}`, xs[0], y, cols[0][1], rowH * L.span, { w: 800 }); }
+        box(xs[1], y, cols[1][1], rowH); text(L.t, xs[1], y, cols[1][1], rowH, { w: 700 }); nums(L.v);
+      } else if (L.kind === 'miss') {
+        box(xs[0], y, cols[0][1], rowH); text(`${L.f}층`, xs[0], y, cols[0][1], rowH, { w: 800 });
+        box(xs[1], y, W - Mg - xs[1], rowH, '#FFF7ED'); text('저장 안 됨', xs[1], y, W - Mg - xs[1], rowH, { color: '#9A3412' });
+      } else { box(xs[0], y, wOf(0, 1), rowH, fills[L.kind]); text(L.label, xs[0], y, wOf(0, 1), rowH, { w: 800 }); nums(L.v, fills[L.kind], true); }
+      y += rowH;
+    });
+    return cv;
+  }
+  $('repScope').onclick = (e) => {
+    const b = e.target.closest('[data-rs]'); if (!b || S.repScope === b.dataset.rs) return;
+    if (S.rep.dirty && b.dataset.rs === 'all' && !confirm('저장하지 않은 수동 입력이 있어요. 저장하지 않고 넘어갈까요?')) return;
+    S.repScope = b.dataset.rs; if (S.repScope === 'all') { S.repAll.at = 0; loadRepAll(true); } renderRep();
+  };
   function repList(i, k) {
     const D = S.repData; if (!D) return;
     const row = i === 'tot' ? D.tot : D.rows[+i]; const label = k === 'n' ? '재원생' : REP_COLS.find(c => c[0] === k)[1].replace('\n', '');
@@ -1509,7 +1620,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('repSeg').onclick = (e) => {
     const b = e.target.closest('[data-rp]'); if (!b || S.repP === +b.dataset.rp) return;
     if (S.rep.dirty && !confirm('저장하지 않은 수동 입력이 있어요. 저장하지 않고 넘어갈까요?')) return;
-    S.repP = +b.dataset.rp; S.rep.dirty = false; renderRep();
+    S.repP = +b.dataset.rp; S.rep.dirty = false; if (S.repScope === 'all') loadRepAll(true); renderRep();
   };
   $('repBox').addEventListener('click', (e) => { const c = e.target.closest('[data-rk2]'); if (c) repList(c.dataset.rr, c.dataset.rk2); });
   $('repBox').addEventListener('keydown', (e) => {
@@ -1551,13 +1662,13 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const D = S.repData; if (!D) return;
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('#repBox input')) { document.activeElement.blur(); }
     const D2 = S.repData;
-    const snap = { stamp: S.repStamp, period: D2.P + 1, rows: [...D2.rows, D2.tot].map(r => ({ t: r.t, ...r.v, adj: r.adj })) };
+    const snap = { stamp: S.repStamp, period: D2.P + 1, seats: S.rows.length, rows: [...D2.rows, D2.tot].map(r => ({ t: r.t, ...r.v, adj: r.adj })) };
     $('repSaveDb').disabled = true;
     try {
       const { data, error } = await db.rpc('work_report_save', { p_day: S.day, p_floor: S.floor, p_period: D2.P + 1, p_overrides: S.rep.ov, p_snapshot: snap });
       if (error) throw error;
       S.rep.saved = { ...(S.rep.saved || {}), overrides: JSON.parse(JSON.stringify(S.rep.ov)), by: data.by, at: data.at }; S.rep.dirty = false; S.rep.at = Date.now();
-      toast(`${D2.P + 1}교시 인원보고를 저장했어요.`);
+      toast(`${D2.P + 1}교시 인원보고를 저장했어요.`); S.repAll.at = 0;
     } catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
     $('repSaveDb').disabled = false; renderRep();
   };
@@ -1603,16 +1714,17 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     });
     return cv;
   }
-  const repName = () => `인원보고_${S.floor}층_${S.day}_${S.repData.P + 1}교시.png`;
+  const repName = () => S.repScope === 'all' ? `인원보고_전층_${S.day}_${S.repP + 1}교시.png` : `인원보고_${S.floor}층_${S.day}_${S.repData.P + 1}교시.png`;
+  const repImg = () => S.repScope === 'all' ? repAllCanvas() : repCanvas();
   const repBlob = (cv) => new Promise(res => cv.toBlob(res, 'image/png'));
   $('repSave').onclick = async () => {
-    const cv = repCanvas(); if (!cv) return;
+    const cv = repImg(); if (!cv) return;
     const blob = await repBlob(cv);
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = repName();
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
   };
   $('repCopy').onclick = async () => {
-    const cv = repCanvas(); if (!cv) return;
+    const cv = repImg(); if (!cv) return;
     const blobP = repBlob(cv);
     try {
       if (!window.ClipboardItem || !navigator.clipboard?.write) throw new Error('no');
@@ -1625,7 +1737,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     }
   };
   $('repShare').onclick = async () => {
-    const cv = repCanvas(); if (!cv) return;
+    const cv = repImg(); if (!cv) return;
     const file = new File([await repBlob(cv)], repName(), { type: 'image/png' });
     try { await navigator.share({ files: [file], title: repName() }); } catch (e) { if (e && e.name !== 'AbortError') toast('공유하지 못했어요. "이미지 저장"을 써 주세요.', { err: true }); }
   };
