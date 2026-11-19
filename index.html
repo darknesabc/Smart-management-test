@@ -83,7 +83,8 @@ button.kpi:disabled{cursor:default;opacity:.55}
 .search{margin-left:auto}
 
 /* 표 (PC) */
-.tbox{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:auto;max-height:calc(100vh - 260px)}
+.tbox{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:auto}
+@media (min-width:900px){ .tbox{max-height:calc(100vh - 260px)} }
 table.sheet{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 table.sheet th{position:sticky;top:0;background:#F4F5F7;color:var(--sub);font-size:12px;font-weight:700;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);z-index:2;white-space:nowrap}
 table.sheet th.p{text-align:center;padding:6px 2px;width:86px}
@@ -116,7 +117,13 @@ table.sheet tr.grp td{background:#FAFBFC;color:var(--sub);font-weight:700;font-s
 
 /* 목록 (모바일) */
 .mlist{display:flex;flex-direction:column;gap:12px}
-.mgrp-h{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);font-weight:700;padding:0 2px 6px}
+.mgrp-h{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);font-weight:700;padding:6px 2px;position:sticky;top:var(--hh,0px);z-index:5;background:var(--bg)}
+/* PC · 태블릿 가로: 위쪽(메뉴 · 숫자 · 필터)은 그대로, 아래 목록만 스크롤 */
+@media (min-width:900px){
+  .fit{overflow:auto;overscroll-behavior:contain;border-radius:16px}
+  .fit .abs-sec h3{position:sticky;top:0;z-index:3}
+  main.fitted{padding-bottom:16px}
+}
 .mgrp-b{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .mrow{padding:10px;border-top:1px solid var(--line2)}
 .mrow:first-child{border-top:0}
@@ -464,7 +471,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       <label class="chk"><input type="checkbox" id="absAllDay"> 오늘 한 번도 안 온 학생만</label>
       <button type="button" class="btn-line" id="absCopy" style="margin-left:auto">사유 없음 명단 복사</button>
     </div>
-    <div id="absList"></div>
+    <div id="absList" class="fit"></div>
     </div>
   </main>
 <div id="smsDlg" class="dim hidden" role="dialog" aria-modal="true"></div>
@@ -527,6 +534,44 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     tab: 'att', data: null, rows: [], att: {}, sched: {}, pending: {}, last: null, wide: true, loading: false,
   };
   const wideMQ = window.matchMedia('(min-width: 900px)');
+
+  // ---------- 스크롤 ----------
+  //  ① 다시 그려도 보던 위치 유지  ② PC에선 목록 칸이 화면 아래 끝까지만 → 위쪽은 고정되고 목록만 스크롤
+  const SCROLLERS = '.tbox, .fit';
+  function scrollKey(el) { const host = el.closest('[id]'); return (host ? host.id : '') + ':' + [...(host || document).querySelectorAll(SCROLLERS)].indexOf(el); }
+  function keepScroll(fn) {
+    return function (...args) {
+      const y = window.scrollY, saved = {};
+      document.querySelectorAll(SCROLLERS).forEach(el => { if (el.scrollTop || el.scrollLeft) saved[scrollKey(el)] = [el.scrollTop, el.scrollLeft]; });
+      const out = fn.apply(this, args);
+      fitScrollers();                      // 높이를 먼저 맞추고 나서 위치를 되돌려야 맨 위로 튀지 않음
+      document.querySelectorAll(SCROLLERS).forEach(el => { const v = saved[scrollKey(el)]; if (v) { el.scrollTop = v[0]; el.scrollLeft = v[1]; } });
+      if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+      return out;
+    };
+  }
+  function fitScrollers() {
+    const hdr = document.querySelector('header.top'); if (hdr) document.documentElement.style.setProperty('--hh', hdr.offsetHeight + 'px');
+    if (!wideMQ.matches) {                  // 휴대폰 · 태블릿 세로: 페이지 전체 스크롤 (열 제목은 상단에 붙음)
+      document.querySelectorAll('main.fitted').forEach(m => m.classList.remove('fitted'));
+      document.querySelectorAll(SCROLLERS).forEach(el => { if (el.style.maxHeight) el.style.maxHeight = ''; });
+      return;
+    }
+    const main = [...document.querySelectorAll('main')].find(m => !m.classList.contains('hidden') && m.offsetParent !== null);
+    document.querySelectorAll('main.fitted').forEach(m => { if (m !== main) m.classList.remove('fitted'); });
+    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat'].includes(main.id)) return;
+    const els = [...main.querySelectorAll(SCROLLERS)].filter(el => el.offsetParent !== null && !el.parentElement.closest(SCROLLERS));
+    if (!els.length) return;
+    main.classList.add('fitted');
+    els.forEach(el => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      let h = Math.max(280, window.innerHeight - top - 16);
+      el.style.maxHeight = h + 'px';
+      const over = document.documentElement.scrollHeight - window.innerHeight;     // 아래 안내문 등 때문에 넘치면 그만큼 줄임
+      if (over > 0) el.style.maxHeight = Math.max(280, h - over) + 'px';
+    });
+  }
+  window.addEventListener('resize', () => { clearTimeout(window.__fitT); window.__fitT = setTimeout(fitScrollers, 120); });
 
   // ---------- 시간 ----------
   function serverNow() { return Date.now() + S.skew; }
@@ -1026,7 +1071,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
         <button type="button" class="btn-line" data-sa="csv">엑셀 저장</button>
         <button type="button" class="btn-dark" data-sa="sent" style="margin-left:auto" ${c.targets.length ? '' : 'disabled'}>발송 완료로 표시</button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="fit" style="display:flex;flex-direction:column;gap:12px">
         ${showT ? `<section class="abs-sec"><h3><span style="color:var(--late)">${F === 'nophone' ? `연락처 없는 학생 ${tList.length}명` : `문자 보낼 학생 ${c.targets.length}명`}</span><small>${F === 'nophone' ? '문자를 못 받아요. 다른 연락 방법이 필요해요' : '학부모 연락처로 보내요'}</small></h3>
           ${tList.length ? tList.map(x => row(x, false)).join('') : '<div style="padding:20px;color:var(--sub)">보낼 학생이 없어요.</div>'}</section>` : ''}
         ${showS && c.skipped.length ? `<section class="abs-sec"><h3><span style="color:var(--sub)">결석이지만 빠진 학생 ${c.skipped.length}명</span><small>빠진 이유</small></h3>${c.skipped.map(x => row(x, true)).join('')}</section>` : ''}
@@ -2093,6 +2138,8 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     try { const { error } = await db.rpc('work_kiosk_delete', { p_client_id: x.client_id }); if (error) throw error; await loadKio(); }
     catch (err) { b.disabled = false; alert(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '지우지 못했어요.')); }
   });
+  render = keepScroll(render); renderAbs = keepScroll(renderAbs); renderSms = keepScroll(renderSms);
+  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat);
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
