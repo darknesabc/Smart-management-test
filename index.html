@@ -2228,13 +2228,13 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     });
     return by;
   }
-  function edRows() {
+  function edRows(withZero) {
     const E = S.ed, by = edCompute(), q = E.q.trim().toLowerCase();
     const has = (o, rs) => o && o.ev.some(e => rs.includes(e.reason));
     return S.rows.filter(r => !r.empty).map(r => ({ r, o: by[r.id] || { ev: [], mon: [], cumEv: [], total: 0, mTotal: 0, cTotal: 0, summary: '', slots: [], cslots: [], voided: [] } }))
       .filter(x => (E.hall === 'all' || x.r.hall === +E.hall) && (!E.t || x.r.teacher === E.t)
         && (!q || [x.r.name, x.r.seat, x.r.id, x.r.teacher].join(' ').toLowerCase().includes(q))
-        && (E.view === 'all' ? (E.zero || x.o.total > 0) : E.view === 'sleep' ? has(x.o, ['취침', '취침강제하원(7회)']) : E.view === 'late' ? has(x.o, EDU_LATE) : x.o.total >= 10));
+        && (E.view === 'all' ? (withZero || E.zero || x.o.total > 0) : E.view === 'sleep' ? has(x.o, ['취침', '취침강제하원(7회)']) : E.view === 'late' ? has(x.o, EDU_LATE) : x.o.total >= 10));
   }
   function renderEdu() {
     const E = S.ed; if (!E.month) E.month = edMonthOf(S.today || S.day);
@@ -2312,14 +2312,31 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const a = document.createElement('a'); a.href = url; a.download = `${edTitle()}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
   $('edPrint').onclick = () => {
-    const rows = edRows(); const w = window.open('', '_blank'); if (!w) return toast('팝업이 막혀 있어요. 팝업을 허용해 주세요.', { err: true });
+    // A3 세로 · 게시용: 구분 · 이름 · 학번은 빼고, 점수 없는 학생도 모두 (전체 보기일 때)
+    const rows = edRows(true); if (!rows.length) return toast('출력할 학생이 없어요.', { err: true });
+    const w = window.open('', '_blank'); if (!w) return toast('팝업이 막혀 있어요. 팝업을 허용해 주세요.', { err: true });
+    const now = new Date(Date.now() + 9 * 3600e3), hm = now.toISOString().slice(11, 16);
+    const printed = `출력 ${dayLabel(now.toISOString().slice(0, 10))} ${hm}`;
+    let last = null;
+    const body = rows.map(({ r, o }) => {
+      const g = r.hall !== last ? `<tr class="g"><td colspan="25">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
+      const sl = Array.from({ length: 20 }, (_, i) => { const t = o.slots[i] || ''; return `<td class="s${t && i >= o.mSlots ? ' c' : ''}">${esc(t).replace(/\((.+)\)$/, '<br>$1')}${i === 19 && o.slots.length > 20 ? ` +${o.slots.length - 20}` : ''}</td>`; }).join('');
+      return g + `<tr class="${o.total >= 10 ? 'hi' : ''}"><td class="k">${esc(r.seat)}</td><td>${esc(r.teacher)}</td>${sl}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total || ''}</td></tr>`;
+    }).join('');
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(edTitle())}</title><style>
-      @page{size:A4 landscape;margin:8mm} body{font-family:'Malgun Gothic',sans-serif;font-size:9px;margin:0}
-      h1{font-size:15px;margin:0 0 6px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:2px 3px;text-align:center;white-space:nowrap}
-      th{background:#eee} td.s{font-size:8px} td.s.c{background:#F3E8FF;font-weight:bold} td.t{font-weight:bold} tr{page-break-inside:avoid}</style></head><body>
-      <h1>${esc(edTitle())}</h1><table><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>이번 달</th><th>누적</th><th>합계</th><th>누적 내역</th></tr></thead><tbody>
-      ${rows.map(({ r, o }) => `<tr><td>${esc(r.status || '재원중')}</td><td>${esc(r.seat)}</td><td>${esc(r.teacher)}</td><td>${esc(r.name)}</td><td>${esc(r.id)}</td>${Array.from({ length: 20 }, (_, i) => `<td class="s${i >= o.mSlots && o.slots[i] ? ' c' : ''}">${esc(o.slots[i] || '')}</td>`).join('')}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total}</td><td class="s" style="white-space:normal;text-align:left">${esc(o.cslots.join(', '))}</td></tr>`).join('')}
-      </tbody></table><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+      @page{size:A3 portrait;margin:8mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      body{font-family:'Malgun Gothic',sans-serif;font-size:9.5px;margin:0}
+      .hd{display:flex;align-items:flex-end;justify-content:space-between;margin:0 0 6px} h1{font-size:20px;margin:0} .pt{font-size:11px;color:#444}
+      table{border-collapse:collapse;width:100%;table-layout:fixed} th,td{border:1px solid #999;padding:3px 2px;text-align:center;overflow:hidden;white-space:nowrap}
+      th{background:#eee;font-size:10px} col.k{width:52px} col.tc{width:44px} col.n{width:34px}
+      td.k{font-weight:bold} td.s{font-size:8px;letter-spacing:-.4px;white-space:normal;word-break:keep-all;line-height:1.15;padding:2px 1px;height:22px} td.s.c{background:#F3E8FF;font-weight:bold}
+      td.t{font-weight:bold;font-size:11px} tr.hi td.t{color:#C0262D} tr.g td{background:#f5f5f5;text-align:left;font-weight:bold;padding-left:6px}
+      thead{display:table-header-group} tr{page-break-inside:avoid} .ft{margin-top:6px;font-size:10px;color:#555}</style></head><body>
+      <div class="hd"><h1>${esc(edTitle())}</h1><div class="pt">${esc(printed)}</div></div>
+      <table><colgroup><col class="k"><col class="tc">${'<col>'.repeat(20)}<col class="n"><col class="n"><col class="n"></colgroup>
+      <thead><tr><th>좌석</th><th>담임</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}</th>`).join('')}<th>이번달</th><th>누적</th><th>합계</th></tr></thead><tbody>${body}</tbody></table>
+      <div class="ft">이번 달 항목은 매월 1일 초기화 · 보라색 칸은 누적 항목(핸드폰 · 전자기기 · 무단이탈 · 무단결석, 초기화 없음) · ${esc(printed)}</div>
+      <script>window.onload=()=>{window.print();}<\/script></body></html>`);
     w.document.close();
   };
   $('edImg').onclick = () => {
