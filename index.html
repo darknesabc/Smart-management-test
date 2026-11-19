@@ -1474,11 +1474,19 @@ table.rep tr.tot td.adj{background:#FEF3C7}
   // ---------- 명단 공유: 전체 / 담임별 · 글자 복사 / 이미지 복사 (카톡에 붙여넣기) ----------
   //  items: [{ seat, name, teacher, note, phone }]
   function listCanvas(title, sub, items, opt) {
+    const groups = opt.groups || null;            // [{ label, items }] → 담임별로 나눈 한 장
+    if (groups) items = groups.flatMap(gp => gp.items);
     const showT = opt.teacherCol, showP = opt.phone, showN = items.some(x => x.note);
     const cols = [['좌석', 84], ['이름', 92]].concat(showT ? [['담임', 82]] : []).concat(showP ? [['학부모 연락처', 138]] : []).concat(showN ? [['비고', 220]] : []);
     const M = 16, rowH = 30, headH = 30, titleH = 56;
-    const W = cols.reduce((a, c) => a + c[1], 0) + M * 2;
-    const H = M + titleH + headH + rowH * Math.max(1, items.length) + M;
+    const F0 = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
+    const mctx = document.createElement('canvas').getContext('2d'); mctx.font = `800 17px ${F0}`;
+    const tableW = cols.reduce((a, c) => a + c[1], 0);
+    const titleW = Math.ceil(mctx.measureText(title).width) + 8;
+    if (titleW > tableW) cols[cols.length - 1][1] += titleW - tableW;      // 제목이 잘리지 않게 마지막 칸을 넓힘
+    const W = Math.max(tableW, titleW) + M * 2;
+    const grpH = 34;
+    const H = M + titleH + headH + rowH * Math.max(1, items.length) + (groups ? groups.length * grpH : 0) + M;
     const s = 2, cv = document.createElement('canvas'); cv.width = W * s; cv.height = H * s;
     const g = cv.getContext('2d'); g.scale(s, s);
     const F = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
@@ -1491,7 +1499,17 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     g.fillStyle = '#4B5361'; g.font = `700 12px ${F}`; cols.forEach((c, i) => g.fillText(c[0], xs[i] + 8, y + headH / 2));
     y += headH;
     if (!items.length) { g.fillStyle = '#9AA1AD'; g.font = `500 13px ${F}`; g.fillText('해당 학생이 없어요', M + 8, y + rowH / 2); }
-    items.forEach((x, ri) => {
+    const firstOf = new Map(); (groups || []).forEach(gp => { if (gp.items.length) firstOf.set(gp.items[0], gp); });
+    let ri = 0;
+    items.forEach((x) => {
+      const gp = firstOf.get(x);
+      if (gp) {                                   // 담임 묶음 제목 줄
+        g.fillStyle = '#EEF2FF'; g.fillRect(M, y, W - M * 2, grpH);
+        g.fillStyle = '#3730A3'; g.font = `800 14px ${F}`; g.fillText(gp.label, M + 8, y + grpH / 2);
+        const lw = g.measureText(gp.label).width;
+        g.fillStyle = '#4B5361'; g.font = `600 12px ${F}`; g.fillText(`${gp.items.length}명`, M + 16 + lw, y + grpH / 2);
+        y += grpH; ri = 0;
+      }
       if (ri % 2) { g.fillStyle = '#FAFAFB'; g.fillRect(M, y, W - M * 2, rowH); }
       const vals = [x.seat, x.name].concat(showT ? [x.teacher] : []).concat(showP ? [x.phone || '연락처 없음'] : []).concat(showN ? [x.note || ''] : []);
       vals.forEach((v, i) => {
@@ -1501,7 +1519,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
         g.fillText(clip(v, cols[i][1]), xs[i] + 8, y + rowH / 2);
       });
       g.strokeStyle = '#EEF0F3'; g.beginPath(); g.moveTo(M, y + rowH + .5); g.lineTo(W - M, y + rowH + .5); g.stroke();
-      y += rowH;
+      y += rowH; ri++;
     });
     return cv;
   }
@@ -1528,7 +1546,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       <div class="sh-list">
         <div class="sh-row all"><b>전체</b><span>${items.length}명</span><button type="button" class="btn-line" data-sh="txt" data-t="">명단 복사</button><button type="button" class="btn-dark" data-sh="img" data-t="">이미지 복사</button></div>
         ${teachers.length > 1 ? `<div class="sh-cap">담임별</div>${teachers.map(t => `<div class="sh-row"><b>${esc(t)}</b><span>${byT[t].length}명</span><button type="button" class="btn-line" data-sh="txt" data-t="${esc(t)}">명단 복사</button><button type="button" class="btn-line" data-sh="img" data-t="${esc(t)}">이미지 복사</button></div>`).join('')}
-        <div class="sh-row all"><b>담임별로 나눠서</b><span>한 번에</span><button type="button" class="btn-line" data-sh="txtall" style="grid-column:span 2">담임별 명단 한꺼번에 복사</button></div>` : ''}
+        <div class="sh-row all"><b>담임별로 나눠서 한 번에</b><span>담임 ${teachers.length}명</span><button type="button" class="btn-line" data-sh="txtall">명단 복사</button><button type="button" class="btn-dark" data-sh="imgall">이미지 복사</button></div>` : ''}
       </div>
       <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div></div>`;
     d.classList.remove('hidden');
@@ -1540,6 +1558,12 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       const t = b.dataset.t, list = t ? byT[t] : items, head = `${dayLabel(S.day)} ${S.floor}층 ${title}${t ? ` · ${t}` : ''} ${list.length}명`;
       if (b.dataset.sh === 'txt') return copyText(head + '\n' + list.map(x => line(x, !t)).join('\n'), `${t || '전체'} 명단을 복사했어요.`);
       if (b.dataset.sh === 'txtall') return copyText(`${dayLabel(S.day)} ${S.floor}층 ${title} ${items.length}명\n\n` + teachers.map(tt => `[${tt}] ${byT[tt].length}명\n` + byT[tt].map(x => line(x, false)).join('\n')).join('\n\n'), '담임별 명단을 복사했어요.');
+      if (b.dataset.sh === 'imgall') {
+        const now = new Date(serverNow() + 9 * 3600e3);
+        const stamp = isToday() ? `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} 기준` : '';
+        const cv = listCanvas(`${S.floor}층 ${title} ${items.length}명 (담임별)`, `${dayLabel(S.day)} ${stamp}`, [], { phone: phone(), groups: teachers.map(tt => ({ label: tt, items: byT[tt] })) });
+        return copyCanvas(cv, `${title}_${S.floor}층_${S.day}_담임별.png`);
+      }
       if (b.dataset.sh === 'img') {
         const now = new Date(serverNow() + 9 * 3600e3);
         const stamp = isToday() ? `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} 기준` : '';
