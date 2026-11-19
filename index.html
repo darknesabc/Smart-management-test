@@ -318,6 +318,21 @@ table.rep tr.tot td.adj{background:#FEF3C7}
 .sh-row b{font-size:15px} .sh-row span{font-size:13px;color:var(--sub);min-width:40px;text-align:right}
 .sh-row.all{background:var(--bg);border-radius:10px;padding:8px 10px;border:0}
 .sh-cap{font-size:12px;font-weight:700;color:var(--sub);margin:8px 2px 0}
+.xbs{display:flex;gap:6px;flex-wrap:wrap}
+.xb{min-width:58px;height:46px;border:1.5px solid #D5D9E0;background:#fff;border-radius:10px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;padding:0 8px;color:var(--sub)}
+.xb b{font-size:14px;color:var(--ink)} .xb small{font-size:11px}
+.xb.on{background:var(--ok);border-color:var(--ok);color:#fff} .xb.on b{color:#fff}
+.xb.all{font-size:12px;font-weight:700;min-width:64px;border-style:dashed}
+.xb.all.on{background:#fff;color:var(--sub);border-color:#D5D9E0;border-style:dashed}
+.ex-t td{vertical-align:middle}
+.ex-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.ex-card .xb{min-width:0;flex:1}
+.ex-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.xbs.sm{gap:4px} .xp{display:inline-flex;width:24px;height:24px;border-radius:6px;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:1px solid #D5D9E0;color:var(--late)}
+.xp.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.ex-per{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:8px}
+.ex-per label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--sub)}
+@media (max-width:899px){ .ex-k{grid-template-columns:repeat(3,minmax(0,1fr)) !important} }
 .arow2 .meta2{font-size:12px;color:var(--sub)}
 .mini8{display:flex;gap:3px}
 .mini8 i{width:18px;height:18px;border-radius:5px;font-style:normal;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:1px solid #D5D9E0;color:var(--sub);background:#fff}
@@ -380,6 +395,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
         <button type="button" id="tabStat">등원 현황</button>
         <button type="button" id="tabSch">스케줄 관리</button>
         <button type="button" id="tabRep">인원보고</button>
+        <button type="button" id="tabExam">모의고사</button>
         <button type="button" id="tabImp">단과 관리</button>
         <button type="button" id="tabKio">태블릿 기록</button>
       </nav>
@@ -506,6 +522,20 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       분류: 결석 학생 중 <b>조퇴</b> 이동 → 조퇴 · <b>단과/러셀</b> → 원내수업 · <b>학교</b> → 학교 · <b>병원·치과·진료·개인</b> → 스케쥴 · 그 밖의 스케줄 · 외부 학원 이동 → 원외수업 · 내부 학원 · 튜터 → 원내수업 · 병원 · 가족 행사 이동 → 스케쥴 · 식사 · 상담 등 원내 이동 → 자습 · 설문 · 기타 이동 → 개인일정 · 사유 없음 → 결석. 이동은 복귀안함이어도 사유대로 나눠요.</p>
   </main>
 
+  <main id="viewExam" class="hidden">
+    <div class="toolbar">
+      <label class="ctl">시험 <select id="exSel" style="min-width:220px"></select></label>
+      <button type="button" class="btn-line" id="exNew">새 시험</button>
+      <button type="button" class="btn-line" id="exEdit">설정</button>
+      <button type="button" class="btn-line" id="exUp">명단 올리기</button>
+      <div class="seg" id="exMode" role="tablist" aria-label="모의고사 보기" style="margin-left:auto">
+        <button type="button" data-xm="check" class="on">응시 체크</button><button type="button" data-xm="stat">응시현황</button><button type="button" data-xm="miss">미응시자</button>
+      </div>
+    </div>
+    <p class="sms-note" id="exNote" style="margin:0"></p>
+    <div id="exBody"></div>
+  </main>
+
   <main id="viewStat" class="hidden">
     <div class="toolbar"><div class="pills" id="statNote" style="color:var(--sub);font-size:13px"></div></div>
     <div class="stat-grid">
@@ -566,7 +596,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     }
     const main = [...document.querySelectorAll('main')].find(m => !m.classList.contains('hidden') && m.offsetParent !== null);
     document.querySelectorAll('main.fitted').forEach(m => { if (m !== main) m.classList.remove('fitted'); });
-    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat'].includes(main.id)) return;
+    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat', 'viewExam'].includes(main.id)) return;
     const els = [...main.querySelectorAll(SCROLLERS)].filter(el => el.offsetParent !== null && !el.parentElement.closest(SCROLLERS));
     if (!els.length) return;
     main.classList.add('fitted');
@@ -681,6 +711,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       if (S.tab === 'kio') loadKio();
       if (S.tab === 'abs' && S.absMode === 'sms') loadSms();
       if (S.tab === 'rep') loadRep();
+      if (S.tab === 'exam' && S.ex.list) loadExamSheet();
       setNet(false);
       render();
     } catch (e) {
@@ -838,7 +869,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -1578,6 +1609,270 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     openShare(`${P + 1}교시 ${names[F]}`, g[F].map(({ r, rs }) => ({ seat: r.seat, name: r.name, teacher: r.teacher, note: F === 'none' ? '' : (rs || []).map(x => x.text).join(', ') })));
   };
 
+  // ---------- 모의고사 출석부 ----------
+  //  시험 좌석 순서로 과목별 응시 체크 (처음엔 모두 미응시 → 누르면 응시) · 응시현황 · 미응시자 명단
+  S.ex = { list: null, id: null, data: null, mode: 'check', hall: 'all', q: '', onlyMiss: false, basis: [0, 1], busy: 0 };
+  const exShort = (s) => ({ '국어': '국', '수학': '수', '영어': '영', '통합사회': '사', '통합과학': '과', '한국사': '한' }[s] || s.slice(0, 1));
+  const exHall = (seat) => { const m = /^(\d+-\d+)/.exec(seat || ''); return m ? m[1] + '관' : '기타'; };
+  const exTook = (r, i) => (r.took || '')[i] === '1';
+  async function loadExamList(pick) {
+    try {
+      const { data, error } = await db.rpc('work_exam_list'); if (error) throw error;
+      S.ex.list = data || [];
+      const saved = +(ls.get('workExam') || 0);
+      const today = S.ex.list.find(e => e.date === S.today);
+      S.ex.id = pick || (S.ex.list.some(e => e.id === S.ex.id) ? S.ex.id : (S.ex.list.some(e => e.id === saved) ? saved : (today || S.ex.list[0] || {}).id || null));
+      renderExam(); if (S.ex.id) loadExamSheet();
+    } catch (e) { $('exBody').innerHTML = `<div class="empty-note" style="color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
+  }
+  async function loadExamSheet() {
+    const id = S.ex.id, fl = S.floor; if (!id) return;
+    const key = id + '|' + fl; if (S.ex.key !== key) S.ex.data = null; S.ex.key = key; S.ex.at = Date.now();
+    try {
+      const { data, error } = await db.rpc('work_exam_sheet', { p_exam_id: id, p_floor: fl }); if (error) throw error;
+      if (S.ex.key !== key || S.ex.busy) return;
+      S.ex.data = data; if (S.tab === 'exam') renderExam();
+    } catch (e) { if (S.ex.key === key && !S.ex.data) $('exBody').innerHTML = `<div class="empty-note" style="color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
+  }
+  function renderExam() {
+    const X = S.ex, L = X.list;
+    $('exSel').innerHTML = L === null ? '<option>불러오는 중…</option>' : L.length ? L.map(e => `<option value="${e.id}" ${e.id === X.id ? 'selected' : ''}>${esc(e.date.slice(5).replace('-', '/'))} ${esc(e.name)} (${e.n}명)</option>`).join('') : '<option value="">시험이 없어요</option>';
+    $('exMode').querySelectorAll('[data-xm]').forEach(b => b.classList.toggle('on', b.dataset.xm === X.mode));
+    const has = !!X.id; ['exEdit', 'exUp'].forEach(i => { $(i).disabled = !has; });
+    if (L === null) { $('exBody').innerHTML = '<div class="empty-note">불러오는 중…</div>'; return; }
+    if (!has) { $('exBody').innerHTML = '<div class="empty-note">아직 시험이 없어요. <b>새 시험</b>을 눌러 만들고, 수험번호 작업용 엑셀을 올려 주세요.</div>'; return; }
+    const D = X.data; if (!D) { $('exBody').innerHTML = '<div class="empty-note">불러오는 중…</div>'; return; }
+    const E = D.exam, subs = E.subjects || [];
+    const linkNote = E.link_att ? `출석부 연동 켜짐 · ${subs.map(s => `${s} ${(E.periods?.[s] || []).join('·')}교시`).join(' / ')}` : '출석부 연동 꺼짐';
+    $('exNote').textContent = `${S.floor}층에서 시험 보는 학생 ${D.rows.length}명 · ${linkNote}`;
+    if (X.mode === 'stat') return renderExamStat(D);
+    if (X.mode === 'miss') return renderExamMiss(D);
+    // 응시 체크
+    const halls = [...new Set(D.rows.map(r => exHall(r.seat)))];
+    if (X.hall !== 'all' && !halls.includes(X.hall)) X.hall = 'all';
+    const q = X.q.trim().toLowerCase();
+    const rows = D.rows.filter(r => (X.hall === 'all' || exHall(r.seat) === X.hall)
+      && (!X.onlyMiss || subs.some((s, i) => !exTook(r, i)))
+      && (!q || [r.name, r.seat, r.id, r.no, r.teacher, r.orig].join(' ').toLowerCase().includes(q)));
+    const took = (i) => D.rows.filter(r => exTook(r, i)).length;
+    const btns = (r) => subs.map((s, i) => `<button type="button" class="xb ${exTook(r, i) ? 'on' : ''}" data-xs="${esc(r.id)}" data-xi="${i + 1}" aria-pressed="${exTook(r, i)}" aria-label="${esc(r.name)} ${esc(s)} ${exTook(r, i) ? '응시' : '미응시'}"><b>${S.wide ? esc(s) : esc(exShort(s))}</b><small>${exTook(r, i) ? '응시' : '미응시'}</small></button>`).join('')
+      + `<button type="button" class="xb all ${subs.every((s, i) => exTook(r, i)) ? 'on' : ''}" data-xs="${esc(r.id)}" data-xi="0" aria-label="${esc(r.name)} 전 과목">${subs.every((s, i) => exTook(r, i)) ? (S.wide ? '전체<br>취소' : '취소') : (S.wide ? '전 과목<br>응시' : '전체')}</button>`;
+    const top = `<div class="kpis ex-k" style="grid-template-columns:repeat(${subs.length + 1},minmax(0,1fr))">
+        <div class="kpi"><div class="l">시험 보는 학생</div><div class="v">${D.rows.length}명</div></div>
+        ${subs.map((s, i) => `<div class="kpi"><div class="l">${esc(s)} 응시</div><div class="v">${took(i)} <small>/ ${D.rows.length}</small></div></div>`).join('')}</div>
+      <div class="toolbar" style="margin:10px 0">
+        <div class="halls" role="group" aria-label="관">${['all', ...halls].map(h => `<button type="button" data-xh="${esc(h)}" class="${X.hall === h ? 'on' : ''}">${h === 'all' ? '전체' : esc(h)}</button>`).join('')}</div>
+        <label class="chk"><input type="checkbox" id="exOnlyMiss" ${X.onlyMiss ? 'checked' : ''}> 미응시 과목 있는 학생만</label>
+        <label class="ctl search" style="margin-left:auto"><span class="sr">검색</span><input type="search" id="exQ" placeholder="이름 · 좌석 · 수험번호" value="${esc(X.q)}"></label>
+      </div>`;
+    const noseat = D.noseat.length ? `<details class="sms-tpl" style="margin-top:12px"><summary>시험 좌석이 없는 학생 ${D.noseat.length}명 <small>엑셀에 시험 좌석번호가 비어 있어요 (기존 좌석이 ${S.floor}층)</small></summary>
+        <div style="font-size:13px;line-height:1.8;margin-top:8px">${D.noseat.map(x => `${esc(x.orig || '')} ${esc(x.name || '')} <span style="color:var(--mute)">${esc(x.teacher || '')} ${esc(x.no || '')}</span>`).join('<br>')}</div></details>` : '';
+    let list;
+    if (!rows.length) list = `<div class="empty-note">${D.rows.length ? '조건에 맞는 학생이 없어요.' : `${S.floor}층에서 시험 보는 학생이 없어요. 위에서 층을 바꾸거나 명단을 올려 주세요.`}</div>`;
+    else if (S.wide) {
+      let last = null;
+      list = `<div class="tbox"><table class="sheet ex-t"><thead><tr><th>시험 좌석</th><th>이름</th><th>수험번호</th><th>학년 · 계열</th><th>기존 좌석</th><th>${subs.map(esc).join(' · ')}</th></tr></thead><tbody>${rows.map(r => {
+        const h = exHall(r.seat); const g = X.hall === 'all' && h !== last ? `<tr class="grp"><td colspan="6">${esc(h)}</td></tr>` : ''; last = h;
+        return g + `<tr><td class="num"><b>${esc(r.seat)}</b></td><td><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b">${esc(r.teacher || '')}</span></td>
+          <td class="num">${esc(r.no || '')}</td><td>${esc(r.grade || '')} · ${esc(r.track || '')}</td><td class="num" style="color:var(--sub)">${esc(r.orig || '')}</td><td><div class="xbs">${btns(r)}</div></td></tr>`;
+      }).join('')}</tbody></table></div>`;
+    } else {
+      list = `<div class="mlist">${rows.map(r => `<div class="ex-card"><div class="ex-h"><b class="num">${esc(r.seat)}</b> <button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b">${esc(r.teacher || '')}</span></div>
+          <div class="meta2 num">${esc(r.no || '')} · ${esc(r.grade || '')} · ${esc(r.track || '')}${r.orig ? ' · 기존 ' + esc(r.orig) : ''}</div><div class="xbs">${btns(r)}</div></div>`).join('')}</div>`;
+    }
+    const qFocus = document.activeElement && document.activeElement.id === 'exQ';
+    if (qFocus) { $('exList').innerHTML = list; return; }       // 검색 입력 중엔 목록만 (한글 입력 안 끊기게)
+    $('exBody').innerHTML = top + `<div id="exList">${list}</div>` + noseat;
+  }
+  function exGroups(D) {
+    const subs = D.exam.subjects || [];
+    const cnt = (rows) => ({ n: rows.length, took: subs.map((s, i) => rows.filter(r => exTook(r, i)).length) });
+    const halls = [...new Set(D.rows.map(r => exHall(r.seat)))];
+    const byHall = halls.map(h => ({ label: h, ...cnt(D.rows.filter(r => exHall(r.seat) === h)) }));
+    const kinds = [...new Set(D.rows.map(r => `${r.grade || '-'} ${r.track || '-'}`))].sort();
+    const byKind = kinds.map(k => ({ label: k, ...cnt(D.rows.filter(r => `${r.grade || '-'} ${r.track || '-'}` === k)) }));
+    return { subs, byHall, byKind, tot: { label: '합계', ...cnt(D.rows) } };
+  }
+  function renderExamStat(D) {
+    const G = exGroups(D);
+    const tbl = (title, rows) => `<section class="abs-sec" style="margin-bottom:12px"><h3><span>${title}</span><small>숫자 = 응시 인원 (미응시)</small></h3>
+      <div style="overflow-x:auto"><table class="rep"><thead><tr><th>구분</th><th>총원</th>${G.subs.map(s => `<th>${esc(s)}</th>`).join('')}</tr></thead>
+      <tbody>${[...rows, G.tot].map((r, i, a) => `<tr class="${i === a.length - 1 ? 'tot' : ''}"><th scope="row">${esc(r.label)}</th><td>${r.n}</td>${r.took.map(t => `<td>${t}${r.n - t ? ` <small style="color:var(--late)">(${r.n - t})</small>` : ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+    $('exBody').innerHTML = `<div class="sms-acts"><button type="button" class="btn-dark" id="exStatImg">응시현황 이미지 복사</button></div>` + tbl('관별 응시현황', G.byHall) + tbl('학년 · 계열별', G.byKind);
+    $('exStatImg').onclick = () => {
+      const head = ['구분', '총원', ...G.subs];
+      const body = (rows) => [...rows, G.tot].map(r => [r.label, r.n, ...r.took.map(t => `${t}${r.n - t ? ` (${r.n - t})` : ''}`)]);
+      const cv = tableCanvas(`${S.floor}층 ${D.exam.name} 응시현황`, `${dayLabel(D.exam.date)} · 응시 인원 (미응시)`, [{ title: '관별', head, rows: body(G.byHall) }, { title: '학년 · 계열별', head, rows: body(G.byKind) }]);
+      copyCanvas(cv, `응시현황_${S.floor}층_${D.exam.date}.png`);
+    };
+  }
+  function renderExamMiss(D) {
+    const subs = D.exam.subjects || [], X = S.ex;
+    const basis = X.basis.filter(i => i < subs.length);
+    const miss = D.rows.filter(r => basis.some(i => !exTook(r, i)));
+    const item = (r) => ({ seat: r.seat, name: r.name, teacher: r.teacher, note: `${r.no || ''} · ${subs.filter((s, i) => !exTook(r, i)).map(exShort).join('')} 미응시`.replace(/^ · /, '') });
+    $('exBody').innerHTML = `<div class="toolbar" style="margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--sub)">기준 과목</span>
+        ${subs.map((s, i) => `<label class="chk"><input type="checkbox" data-xb="${i}" ${basis.includes(i) ? 'checked' : ''}> ${esc(s)}</label>`).join('')}
+        <button type="button" class="btn-dark" id="exMissShare" style="margin-left:auto" ${miss.length ? '' : 'disabled'}>명단 복사 · 이미지 (담임별)</button></div>
+      <section class="abs-sec"><h3><span style="color:var(--late)">미응시자 ${miss.length}명</span><small>${basis.length ? basis.map(i => esc(subs[i])).join(' · ') + ' 중 하나라도 미응시' : '기준 과목을 골라 주세요'}</small></h3>
+      ${miss.length ? miss.map(r => `<div class="arow2"><span class="num" style="width:64px;font-weight:700">${esc(r.seat)}</span>
+        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button></b><span class="tch-b">${esc(r.teacher || '')}</span>
+        <div class="meta2 num">${esc(r.no || '')} · ${esc(r.grade || '')} · ${esc(r.track || '')}</div></div>
+        <div class="xbs sm">${subs.map((s, i) => `<span class="xp ${exTook(r, i) ? 'on' : ''}">${esc(exShort(s))}</span>`).join('')}</div></div>`).join('') : '<div style="padding:20px;color:var(--sub)">미응시자가 없어요.</div>'}</section>`;
+    $('exBody').querySelectorAll('[data-xb]').forEach(c => c.onchange = () => { const i = +c.dataset.xb; X.basis = c.checked ? [...new Set([...X.basis, i])].sort() : X.basis.filter(x => x !== i); renderExam(); });
+    const sh = $('exMissShare'); if (sh) sh.onclick = () => openShare(`${D.exam.name} 미응시`, miss.map(item));
+  }
+  // 표 여러 개를 한 장으로
+  function tableCanvas(title, sub, tables) {
+    const F = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif', M = 16, rowH = 30, capH = 30;
+    const ncol = Math.max(...tables.map(t => t.head.length)); const cw = [110, ...Array(ncol - 1).fill(78)];
+    const W = cw.reduce((a, b) => a + b, 0) + M * 2;
+    const H = M + 56 + tables.reduce((a, t) => a + capH + rowH * (t.rows.length + 1) + 10, 0) + M;
+    const s = 2, cv = document.createElement('canvas'); cv.width = W * s; cv.height = H * s; const g = cv.getContext('2d'); g.scale(s, s);
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.textBaseline = 'middle';
+    g.fillStyle = '#15181D'; g.font = `800 17px ${F}`; g.fillText(title, M, M + 16);
+    g.fillStyle = '#6B7280'; g.font = `500 12px ${F}`; g.fillText(sub, M, M + 40);
+    let y = M + 56;
+    tables.forEach(t => {
+      g.fillStyle = '#4B5361'; g.font = `800 13px ${F}`; g.fillText(t.title, M, y + capH / 2); y += capH;
+      [t.head, ...t.rows].forEach((r, ri) => {
+        let x = M; const head = ri === 0, tot = ri === t.rows.length;
+        r.forEach((v, ci) => {
+          g.fillStyle = head ? '#F3F4F6' : tot ? '#EEF2FF' : '#fff'; g.fillRect(x, y, cw[ci], rowH);
+          g.strokeStyle = '#D5D9E0'; g.strokeRect(x + .5, y + .5, cw[ci], rowH);
+          g.fillStyle = '#15181D'; g.font = `${head || ci === 0 || tot ? 700 : 600} 13px ${F}`; g.textAlign = 'center';
+          g.fillText(String(v), x + cw[ci] / 2, y + rowH / 2); g.textAlign = 'left'; x += cw[ci];
+        });
+        y += rowH;
+      });
+      y += 10;
+    });
+    return cv;
+  }
+  async function exSet(id, idx) {
+    const D = S.ex.data; const r = D.rows.find(x => x.id === id); if (!r) return;
+    const subs = D.exam.subjects, n = subs.length, cur = (r.took || '').padEnd(n, '0');
+    const on = idx === 0 ? !subs.every((s, i) => cur[i] === '1') : cur[idx - 1] !== '1';
+    const before = r.took;
+    r.took = [...cur].map((c, i) => (idx === 0 || idx === i + 1) ? (on ? '1' : '0') : c).join('');
+    S.ex.busy++; renderExam();
+    try { const { data, error } = await db.rpc('work_exam_set', { p_exam_id: D.exam.id, p_student_id: id, p_idx: idx, p_on: on }); if (error) throw error; r.took = data; }
+    catch (e) { r.took = before; toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요. 다시 눌러 주세요.' : (e.message || '저장하지 못했어요.'), { err: true }); }
+    S.ex.busy--; renderExam();
+  }
+  $('exBody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-xs]'); if (b) return exSet(b.dataset.xs, +b.dataset.xi);
+    const h = e.target.closest('[data-xh]'); if (h) { S.ex.hall = h.dataset.xh; return renderExam(); }
+    const o = e.target.closest('[data-open]'); if (o && S.rows.some(r => r.id === o.dataset.open)) return openDetail(o.dataset.open, 0);
+  });
+  $('exBody').addEventListener('change', (e) => { if (e.target.id === 'exOnlyMiss') { S.ex.onlyMiss = e.target.checked; renderExam(); } });
+  $('exBody').addEventListener('input', (e) => { if (e.target.id === 'exQ') { S.ex.q = e.target.value; renderExam(); } });
+  $('exMode').onclick = (e) => { const b = e.target.closest('[data-xm]'); if (!b) return; S.ex.mode = b.dataset.xm; renderExam(); };
+  $('exSel').onchange = () => { S.ex.id = +$('exSel').value || null; ls.set('workExam', String(S.ex.id || '')); S.ex.data = null; renderExam(); loadExamSheet(); };
+
+  // 시험 만들기 · 고치기
+  function openExamEdit(isNew) {
+    const E = isNew ? null : (S.ex.list || []).find(e => e.id === S.ex.id);
+    const subs = E ? E.subjects : ['국어', '수학', '영어', '통합사회', '통합과학'];
+    const per = E ? E.periods : { '국어': [1, 2], '수학': [3], '영어': [4], '통합사회': [5], '통합과학': [6] };
+    const d = $('smsDlg');
+    d.innerHTML = `<div class="sheet-box" style="max-width:560px"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">모의고사</div><div class="t2">${isNew ? '새 시험 만들기' : '시험 설정'}</div></div></div>
+      <div class="sh-sec"><div class="h">시험 이름</div><input class="sms-in" id="exName" maxlength="60" placeholder="예: 11월 전국 대단위 실전 모의고사" value="${esc(E?.name || '')}"></div>
+      <div class="sh-sec"><div class="h">시험 날짜</div><input class="sms-in" type="date" id="exDate" value="${esc(E?.date || S.day)}"></div>
+      <div class="sh-sec"><div class="h">과목 (쉼표로 구분)</div><input class="sms-in" id="exSubs" value="${esc(subs.join(', '))}"></div>
+      <div class="sh-sec"><label class="chk"><input type="checkbox" id="exLink" ${E ? (E.link_att ? 'checked' : '') : 'checked'}> 출석부 연동 (응시 → 그 과목 교시 출석)</label>
+        <div id="exPer" class="ex-per"></div></div>
+      <div style="display:flex;gap:8px">${isNew ? '' : '<button type="button" class="btn-line" data-exdel style="color:var(--late)">시험 삭제</button>'}
+        <button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button><button type="button" class="btn-dark" data-exsave>저장</button></div></div>`;
+    d.classList.remove('hidden');
+    const drawPer = () => { const ss = $('exSubs').value.split(',').map(x => x.trim()).filter(Boolean);
+      $('exPer').innerHTML = ss.map(s => `<label>${esc(s)} <input class="sms-in" data-per="${esc(s)}" value="${esc(($('exPer').querySelector(`[data-per="${CSS.escape(s)}"]`)?.value) ?? (per[s] || []).join(','))}" placeholder="교시 예: 1,2"></label>`).join(''); };
+    drawPer(); $('exSubs').addEventListener('change', drawPer);
+    d.onclick = async (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) { d.classList.add('hidden'); d.innerHTML = ''; return; }
+      if (ev.target.closest('[data-exdel]')) {
+        if (!confirm(`'${E.name}' 시험과 응시 기록을 모두 지울까요? 되돌릴 수 없어요.`)) return;
+        try { const { error } = await db.rpc('work_exam_delete', { p_id: E.id }); if (error) throw error; d.classList.add('hidden'); toast('시험을 지웠어요.'); S.ex.id = null; loadExamList(); }
+        catch (err) { toast(err.message || '지우지 못했어요.', { err: true }); } return;
+      }
+      if (ev.target.closest('[data-exsave]')) {
+        const ss = $('exSubs').value.split(',').map(x => x.trim()).filter(Boolean);
+        const periods = {}; $('exPer').querySelectorAll('[data-per]').forEach(i => { periods[i.dataset.per] = i.value.split(/[,\s·]+/).map(Number).filter(n => n >= 1 && n <= 8); });
+        try {
+          const { data, error } = await db.rpc('work_exam_save', { p_id: E ? E.id : null, p_name: $('exName').value, p_date: $('exDate').value, p_subjects: ss, p_periods: periods, p_link: $('exLink').checked });
+          if (error) throw error; d.classList.add('hidden'); d.innerHTML = ''; toast(isNew ? '시험을 만들었어요. 이제 수험번호 명단을 올려 주세요.' : '저장했어요.');
+          ls.set('workExam', String(data)); S.ex.data = null; await loadExamList(data); if (isNew) openExamUpload();
+        } catch (err) { toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '저장하지 못했어요.'), { err: true }); }
+      }
+    };
+  }
+  // 수험번호 작업용 엑셀 올리기
+  let xlsxP = null;
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return xlsxP ||= new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = () => res(window.XLSX); sc.onerror = () => { xlsxP = null; rej(new Error('엑셀 읽기 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.')); }; document.head.appendChild(sc); });
+  }
+  async function readExamFile(file) {
+    const X = await loadXlsx();
+    const wb = X.read(await file.arrayBuffer(), { type: 'array' });
+    const names = [...wb.SheetNames].sort((a, b) => (b.includes('작업용') ? 1 : 0) - (a.includes('작업용') ? 1 : 0));
+    for (const nm of names) {
+      const A = X.utils.sheet_to_json(wb.Sheets[nm], { header: 1, raw: false, defval: '' });
+      const hi = A.findIndex(r => r.some(c => String(c).trim() === '학번') && r.some(c => String(c).replace(/\s/g, '') === '수험번호'));
+      if (hi < 0) continue;
+      const H = A[hi].map(c => String(c).replace(/\s/g, ''));
+      const col = (...ks) => { for (const k of ks) { const i = H.indexOf(k); if (i >= 0) return i; } return -1; };
+      const c = { id: col('학번'), name: col('이름'), teacher: col('담임'), gender: col('성별'), track: col('계열'), no: col('수험번호'), grade: col('학년'), cls: col('반'),
+                  seat: col('시험좌석번호', '시험좌석', '좌석번호'), orig: col('기존좌석') };
+      const ok = (v) => { v = String(v ?? '').trim(); return v && !/^#/.test(v) ? v : ''; };
+      const rows = A.slice(hi + 1).filter(r => ok(r[c.id])).map(r => ({
+        student_id: ok(r[c.id]).replace(/\.0$/, ''), name: ok(r[c.name]), teacher: ok(r[c.teacher]), gender: ok(r[c.gender]), track: ok(r[c.track]),
+        exam_no: ok(r[c.no]).replace(/\.0$/, '').padStart(6, '0'), grade: ok(r[c.grade]), class_name: ok(r[c.cls]),
+        exam_seat: c.seat >= 0 ? ok(r[c.seat]).toUpperCase() : '', orig_seat: c.orig >= 0 ? ok(r[c.orig]).toUpperCase() : '' }));
+      return { sheet: nm, rows, hasSeat: c.seat >= 0 };
+    }
+    throw new Error('학번 · 수험번호 칸이 있는 시트를 찾지 못했어요. "전체수험번호_작업용" 엑셀인지 확인해 주세요.');
+  }
+  function openExamUpload() {
+    const E = (S.ex.list || []).find(e => e.id === S.ex.id); if (!E) return;
+    const d = $('smsDlg');
+    d.innerHTML = `<div class="sheet-box" style="max-width:560px"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">${esc(E.name)}</div><div class="t2">수험번호 명단 올리기</div></div></div>
+      <p class="sms-note" style="margin:0">"전체수험번호_작업용" 엑셀(.xlsx)을 골라 주세요. 학번 · 이름 · 담임 · 계열 · 수험번호 · 학년 · <b>시험 좌석번호</b> · 기존좌석을 읽어요. 전 층을 한 번에 올리면 돼요.</p>
+      <input type="file" id="exFile" accept=".xlsx,.xls" class="sms-in" style="padding:8px">
+      <div id="exPrev"></div>
+      <label class="chk"><input type="checkbox" id="exReplace"> 이 파일에 없는 학생은 명단에서 빼기 (응시 체크도 같이 지워져요)</label>
+      <div style="display:flex;gap:8px"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button><button type="button" class="btn-dark" data-exup disabled>올리기</button></div></div>`;
+    d.classList.remove('hidden');
+    let parsed = null;
+    $('exFile').onchange = async () => {
+      const f = $('exFile').files[0]; if (!f) return; parsed = null; d.querySelector('[data-exup]').disabled = true;
+      $('exPrev').innerHTML = '<p class="sms-note">읽는 중…</p>';
+      try {
+        parsed = await readExamFile(f);
+        const fl = {}; parsed.rows.forEach(r => { const k = r.exam_seat ? r.exam_seat.split('-')[0] + '층' : '시험 좌석 없음'; fl[k] = (fl[k] || 0) + 1; });
+        $('exPrev').innerHTML = `<div class="sms-sent" style="background:var(--bg);color:var(--ink)">'${esc(parsed.sheet)}' 시트 · ${parsed.rows.length}명 · ${Object.entries(fl).map(([k, v]) => `${esc(k)} ${v}명`).join(' · ')}</div>
+          ${parsed.hasSeat ? '' : '<p class="sms-note warn">시험 좌석번호 칸이 없어요. 좌석 없이 올라가요.</p>'}`;
+        d.querySelector('[data-exup]').disabled = !parsed.rows.length;
+      } catch (err) { $('exPrev').innerHTML = `<p class="sms-note warn">${esc(err.message || '파일을 읽지 못했어요.')}</p>`; }
+    };
+    d.onclick = async (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) { d.classList.add('hidden'); d.innerHTML = ''; return; }
+      const up = ev.target.closest('[data-exup]'); if (!up || !parsed) return;
+      const rep = $('exReplace').checked;
+      if (rep && !confirm('파일에 없는 학생은 명단과 응시 체크가 지워져요. 계속할까요?')) return;
+      up.disabled = true;
+      try {
+        const { data, error } = await db.rpc('work_exam_import', { p_exam_id: E.id, p_rows: parsed.rows, p_replace: rep }); if (error) throw error;
+        d.classList.add('hidden'); d.innerHTML = ''; toast(`${data.saved}명을 올렸어요.${data.deleted ? ` (${data.deleted}명 뺌)` : ''}`); S.ex.data = null; loadExamList(E.id);
+      } catch (err) { up.disabled = false; toast(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '올리지 못했어요.'), { err: true }); }
+    };
+  }
+  $('exNew').onclick = () => openExamEdit(true);
+  $('exEdit').onclick = () => openExamEdit(false);
+  $('exUp').onclick = () => openExamUpload();
+
   // ---------- 등원 현황 ----------
   function renderStat() {
     const live = S.rows.filter(r => !r.empty);
@@ -2197,7 +2492,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     render();
@@ -2207,6 +2502,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
   $('tabSch').onclick = () => setTab('sch');
   $('tabRep').onclick = () => setTab('rep');
+  $('tabExam').onclick = () => { setTab('exam'); if (S.ex.list === null) loadExamList(); else loadExamSheet(); };
   $('tabAbs').onclick = () => { setTab('abs'); if (S.absMode === 'sms') loadSms(); };
   $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
 
@@ -2246,7 +2542,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     catch (err) { b.disabled = false; alert(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '지우지 못했어요.')); }
   });
   render = keepScroll(render); renderAbs = keepScroll(renderAbs); renderSms = keepScroll(renderSms);
-  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat);
+  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam);
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
@@ -2281,7 +2577,8 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     if (document.visibilityState !== 'visible') return;
     if (queue.length) flushQueue();
     if (S.tab === 'kio' && Date.now() - (S.kioAt || 0) > 30e3) loadKio();   // 태블릿 기록: 30초마다 새로
-    if (S.tab === 'abs' && S.absMode === 'sms' && Date.now() - (S.smsAt || 0) > 60e3) loadSms();   // 문자 명단: 담임 제외 · 발송 기록 1분마다
+    if (S.tab === 'abs' && S.absMode === 'sms' && Date.now() - (S.smsAt || 0) > 60e3) loadSms();
+    if (S.tab === 'exam' && S.ex.id && !S.ex.busy && Date.now() - (S.ex.at || 0) > 15e3) loadExamSheet();   // 모의고사: 다른 선생님 체크 15초마다   // 문자 명단: 담임 제외 · 발송 기록 1분마다
     poll();
   }, 20000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.data) { S.extrasAt = 0; poll(); } });
