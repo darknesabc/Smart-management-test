@@ -348,6 +348,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 .ed-t td.es.t-late{background:#FFF4E5;color:#9A3412} .ed-t td.es.t-bad{background:#FDECEA;color:var(--late);font-weight:700}
 .ed-t td.es.t-sl{background:var(--schSoft);color:var(--schInk)} .ed-t td.es.t-etc{background:#EEF2FF;color:#3730A3}
 .ed-t td.et{font-weight:800;font-size:15px} .ed-t td.et.cu{color:#6B21A8}
+.ed-t td.es.t-cu{background:#F3E8FF;color:#6B21A8;font-weight:700}
 .ech.t-cu{background:#F3E8FF;color:#6B21A8;font-weight:700} .et.hi{color:var(--late)}
 .ed-t td.esum{white-space:nowrap;color:var(--sub);font-size:12px}
 .ed-t tr[data-eid]{cursor:pointer} .ed-t tr[data-eid]:hover td{background:#FAFAFB}
@@ -612,7 +613,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     </div>
     <p class="sms-note" id="edNote" style="margin:0"></p>
     <div id="edBody"></div>
-    <div class="legend"><span>지각 = 출결 지각 · 태블릿 지각 (하루 1점) · 미등원 문자 2번 = 무단지각 5점 · 3번 = 무단결석 7점 (같은 날은 큰 것 하나만) · 취침 하루 3회마다 1점 · 7점 이상 항목(핸드폰 · 전자기기 · 무단이탈 · 무단결석)은 누적, 나머지는 매월 1일 초기화</span><span>학생을 누르면 내역과 제외</span></div>
+    <div class="legend"><span>지각 = 출결 지각 · 태블릿 지각 (하루 1점) · 미등원 문자 2번 = 무단지각 5점 · 3번 = 무단결석 7점 (같은 날은 큰 것 하나만) · 취침 하루 3회마다 1점 · 7점 이상 항목(핸드폰 · 전자기기 · 무단이탈 · 무단결석)은 누적, 나머지는 매월 1일 초기화</span><span>점수 칸: 이번 달 다음에 <b style="color:#6B21A8">누적</b>(보라색) · 학생을 누르면 내역과 제외</span></div>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -2221,7 +2222,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       o.mTotal = o.mon.reduce((a, e) => a + e.pts, 0); o.cTotal = o.cumEv.reduce((a, e) => a + e.pts, 0); o.total = o.mTotal + o.cTotal;
       const sumOf = (list) => { const sum = {}; list.forEach(e => { sum[e.reason] = (sum[e.reason] || 0) + e.pts; }); return Object.entries(sum).sort((a, b) => b[1] - a[1]).map(([r, p]) => `${r.replace('(7회)', '')} ${p}점`).join(', '); };
       o.summary = [sumOf(o.mon), o.cumEv.length ? '누적 ' + sumOf(o.cumEv) : ''].filter(Boolean).join(' · ');
-      o.slots = o.mon.flatMap(e => Array(e.pts).fill(`${e.reason.replace('(7회)', '')}(${md(e.day)})`));
+      o.slots = o.mon.concat(o.cumEv).flatMap(e => Array(e.pts).fill(`${e.reason.replace('(7회)', '')}(${mdY(e.day)})`));   // 1점에 한 칸 — 이번 달 다음에 누적
+      o.mSlots = o.mon.reduce((a, e) => a + e.pts, 0);
       o.cslots = o.cumEv.map(e => `${e.reason}(${mdY(e.day)})`);
     });
     return by;
@@ -2253,10 +2255,10 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const tone = (s) => /취침/.test(s) ? 'sl' : /무단/.test(s) ? 'bad' : /지각/.test(s) ? 'late' : 'etc';
     if (S.wide) {
       let last = null;
-      $('edBody').innerHTML = `<div class="tbox"><table class="sheet ed-t"><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th><th>이번 달</th><th>누적</th><th>합계</th><th>요약</th>${Array.from({ length: 20 }, (_, i) => `<th class="sl-h">${i + 1}점</th>`).join('')}<th>누적 내역</th></tr></thead><tbody>${rows.map(({ r, o }) => {
-        const g = E.hall === 'all' && r.hall !== last ? `<tr class="grp"><td colspan="30">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
-        const sl = Array.from({ length: 20 }, (_, i) => { const s = o.slots[i]; return `<td class="es ${s ? 't-' + tone(s) : ''}">${s ? esc(s) : ''}${i === 19 && o.slots.length > 20 ? ` <b>+${o.slots.length - 20}</b>` : ''}</td>`; }).join('');
-        return g + `<tr class="${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><td>${stHtml(r)}</td><td class="num"><b>${esc(r.seat)}</b></td><td>${esc(r.teacher)}</td><td><button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button></td><td class="num">${esc(r.id)}</td><td class="et">${o.mTotal || ''}</td><td class="et cu">${o.cTotal || ''}</td><td class="et ${o.total >= 10 ? 'hi' : ''}">${o.total}</td><td class="esum">${esc(o.summary)}</td>${sl}<td class="esum">${esc(o.cslots.join(', '))}</td></tr>`;
+      $('edBody').innerHTML = `<div class="tbox"><table class="sheet ed-t"><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th><th>이번 달</th><th>누적</th><th>합계</th><th>요약</th>${Array.from({ length: 20 }, (_, i) => `<th class="sl-h">${i + 1}점</th>`).join('')}</tr></thead><tbody>${rows.map(({ r, o }) => {
+        const g = E.hall === 'all' && r.hall !== last ? `<tr class="grp"><td colspan="29">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
+        const sl = Array.from({ length: 20 }, (_, i) => { const s = o.slots[i]; return `<td class="es ${s ? 't-' + (i >= o.mSlots ? 'cu' : tone(s)) : ''}">${s ? esc(s) : ''}${i === 19 && o.slots.length > 20 ? ` <b>+${o.slots.length - 20}</b>` : ''}</td>`; }).join('');
+        return g + `<tr class="${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><td>${stHtml(r)}</td><td class="num"><b>${esc(r.seat)}</b></td><td>${esc(r.teacher)}</td><td><button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button></td><td class="num">${esc(r.id)}</td><td class="et">${o.mTotal || ''}</td><td class="et cu">${o.cTotal || ''}</td><td class="et ${o.total >= 10 ? 'hi' : ''}">${o.total}</td><td class="esum">${esc(o.summary)}</td>${sl}</tr>`;
       }).join('')}</tbody></table></div>`;
     } else {
       $('edBody').innerHTML = `<div class="mlist">${rows.map(({ r, o }) => `<div class="ex-card ${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><div class="ex-h"><b class="num">${esc(r.seat.replace(/^\d+-/, ''))}</b> <button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b">${esc(r.teacher)}</span><span class="et ${o.total >= 10 ? 'hi' : ''}" style="margin-left:auto">${o.total}점${o.cTotal ? `<small class="meta2"> (이번 달 ${o.mTotal} · 누적 ${o.cTotal})</small>` : ''}</span></div>
@@ -2314,9 +2316,9 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(edTitle())}</title><style>
       @page{size:A4 landscape;margin:8mm} body{font-family:'Malgun Gothic',sans-serif;font-size:9px;margin:0}
       h1{font-size:15px;margin:0 0 6px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:2px 3px;text-align:center;white-space:nowrap}
-      th{background:#eee} td.s{font-size:8px} td.t{font-weight:bold} tr{page-break-inside:avoid}</style></head><body>
+      th{background:#eee} td.s{font-size:8px} td.s.c{background:#F3E8FF;font-weight:bold} td.t{font-weight:bold} tr{page-break-inside:avoid}</style></head><body>
       <h1>${esc(edTitle())}</h1><table><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>이번 달</th><th>누적</th><th>합계</th><th>누적 내역</th></tr></thead><tbody>
-      ${rows.map(({ r, o }) => `<tr><td>${esc(r.status || '재원중')}</td><td>${esc(r.seat)}</td><td>${esc(r.teacher)}</td><td>${esc(r.name)}</td><td>${esc(r.id)}</td>${Array.from({ length: 20 }, (_, i) => `<td class="s">${esc(o.slots[i] || '')}</td>`).join('')}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total}</td><td class="s" style="white-space:normal;text-align:left">${esc(o.cslots.join(', '))}</td></tr>`).join('')}
+      ${rows.map(({ r, o }) => `<tr><td>${esc(r.status || '재원중')}</td><td>${esc(r.seat)}</td><td>${esc(r.teacher)}</td><td>${esc(r.name)}</td><td>${esc(r.id)}</td>${Array.from({ length: 20 }, (_, i) => `<td class="s${i >= o.mSlots && o.slots[i] ? ' c' : ''}">${esc(o.slots[i] || '')}</td>`).join('')}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total}</td><td class="s" style="white-space:normal;text-align:left">${esc(o.cslots.join(', '))}</td></tr>`).join('')}
       </tbody></table><script>window.onload=()=>{window.print();}<\/script></body></html>`);
     w.document.close();
   };
