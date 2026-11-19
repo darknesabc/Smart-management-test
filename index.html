@@ -363,6 +363,12 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 .ed-t td.es.t-sl{background:var(--schSoft);color:var(--schInk)} .ed-t td.es.t-etc{background:#EEF2FF;color:#3730A3}
 .ed-t td.et{font-weight:800;font-size:15px} .ed-t td.et.cu{color:#6B21A8}
 .ed-t td.es.t-cu{background:#F3E8FF;color:#6B21A8;font-weight:700}
+.lf-info{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.lf-info>div{background:var(--bg);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px} .lf-info span{font-size:12px;color:var(--sub)}
+.lf-day{display:flex;gap:12px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line);font-size:13px} .lf-day>span:first-child{width:110px}
+.lf-cs{display:flex;gap:3px;margin-left:auto} .lf-c{width:16px;height:16px;border-radius:4px;display:inline-block;background:#E5E7EB}
+.lf-c.c1{background:#22A06B} .lf-c.c2{background:#F59E0B} .lf-c.c3{background:#E5E7EB}
+.lf-t tr[data-lf]{cursor:pointer} .lf-t tr[data-lf]:hover td{background:#FAFAFB}
 .ech.t-cu{background:#F3E8FF;color:#6B21A8;font-weight:700} .et.hi{color:var(--late)}
 .ed-t td.esum{white-space:nowrap;color:var(--sub);font-size:12px}
 .ed-t tr[data-eid]{cursor:pointer} .ed-t tr[data-eid]:hover td{background:#FAFAFB}
@@ -470,6 +476,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       <button type="button" id="tabExam" data-g="rep" class="hidden">모의고사</button>
       <button type="button" id="tabSch" data-g="mng" class="hidden">스케줄 관리</button>
       <button type="button" id="tabImp" data-g="mng" class="hidden">단과 관리</button>
+      <button type="button" id="tabLeft" data-g="mng" class="hidden">퇴원생</button>
     </nav>
   </header>
 
@@ -637,6 +644,16 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     <div class="legend"><span>지각 = 출결 지각 · 태블릿 지각 (하루 1점) · 미등원 문자 2번 = 무단지각 5점 · 3번 = 무단결석 7점 (같은 날은 큰 것 하나만) · 취침 하루 3회마다 1점 · 7점 이상 항목(핸드폰 · 전자기기 · 무단이탈 · 무단결석)은 누적, 나머지는 매월 1일 초기화</span><span>점수 칸: 이번 달 다음에 <b style="color:#6B21A8">누적</b>(보라색) · 학생을 누르면 내역과 제외</span></div>
   </main>
 
+  <main id="viewLeft" class="hidden">
+    <div class="toolbar">
+      <div class="seg" id="lfScope" role="group" aria-label="범위"></div>
+      <label class="ctl search" style="margin-left:auto"><span class="sr">검색</span><input type="search" id="lfQ" placeholder="이름 · 학번 · 좌석 · 담임 · 반"></label>
+    </div>
+    <p class="sms-note" id="lfNote" style="margin:0"></p>
+    <div id="lfBody"></div>
+    <p class="sms-note">시트에서 퇴원 처리되어 명렬에서 빠진 학생이 자동으로 모여요. 학생을 누르면 출결 · 교육점수 기록을 볼 수 있어요. 지난 날짜 출결 화면에서도 그날 자리에 <b>퇴원</b> 표시로 나와요.</p>
+  </main>
+
   <main id="viewStat" class="hidden">
     <div class="toolbar"><div class="pills" id="statNote" style="color:var(--sub);font-size:13px"></div></div>
     <div class="stat-grid">
@@ -721,6 +738,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (S.tab === 'abs') return S.absMode === 'sms' ? `${S.smsR || ''}교시 문자 명단` : `${(S.absP ?? 0) + 1}교시 미등원`;
     if (S.tab === 'exam') return `${X.room || '전체 고사장'}${X.hall && X.hall !== 'all' ? ' · ' + X.hall : ''} · ${X.view === 'sub' && X.data ? X.data.exam.subjects[X.sub] : '전 과목'}`;
     if (S.tab === 'rep') return `${S.repScope === 'all' ? '전층 ' : ''}${S.repForm ? repFormObj().name + ' ' : ''}인원보고`;
+    if (S.tab === 'left') return `퇴원생${S.lf.scope === 'all' ? ' · 전체 층' : ''}`;
     if (S.tab === 'edu') return `교육점수 · ${{ all: '전체', sleep: '취침 주의', late: '지각 주의', top: '10점 이상' }[S.ed.view]}${S.ed.hall === 'all' ? '' : ' · ' + S.ed.hall + '관'}`;
     if (S.tab === 'sleep') return `순찰 · ${S.sl.hall === 'all' ? '전체 관' : S.sl.hall + '관'} · ${S.sl.range === 'day' ? '하루 전체' : (S.sl.period + 1) + '교시'}`;
     return '';
@@ -741,7 +759,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     }
     const main = [...document.querySelectorAll('main')].find(m => !m.classList.contains('hidden') && m.offsetParent !== null);
     document.querySelectorAll('main.fitted').forEach(m => { if (m !== main) m.classList.remove('fitted'); });
-    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat', 'viewExam', 'viewSleep', 'viewEdu'].includes(main.id)) return;
+    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat', 'viewExam', 'viewSleep', 'viewEdu', 'viewLeft'].includes(main.id)) return;
     const els = [...main.querySelectorAll(SCROLLERS)].filter(el => el.offsetParent !== null && !el.parentElement.closest(SCROLLERS));
     if (!els.length) return;
     main.classList.add('fitted');
@@ -866,6 +884,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       if (S.tab === 'exam' && S.ex.list) loadExamSheet();
       if (S.tab === 'sleep') loadSleep();
       if (S.tab === 'edu') loadEdu();
+      if (S.tab === 'left') loadLeft(true);
       setNet(false);
       render();
     } catch (e) {
@@ -887,7 +906,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     seats.sort(cmpSeat);
     S.rows = seats.map(seat => {
       const k = seatKey(seat); const st = bySeat[seat];
-      return st ? { seat, hall: k[1], row: k[2], empty: false, id: st.student_id, name: st.name, status: st.status || '', teacher: st.teacher || '', gender: st.gender || '', grade: st.grade || '' }
+      return st ? { seat, hall: k[1], row: k[2], empty: false, id: st.student_id, name: st.name, status: st.status || '', teacher: st.teacher || '', gender: st.gender || '', grade: st.grade || '', cls: st.class || '', left: !!st.left }
                 : { seat, hall: k[1], row: k[2], empty: true };
     });
     const att = {};
@@ -1023,7 +1042,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam(); else if (S.tab === 'sleep') renderSleep(); else if (S.tab === 'edu') renderEdu();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam(); else if (S.tab === 'sleep') renderSleep(); else if (S.tab === 'edu') renderEdu(); else if (S.tab === 'left') renderLeft();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -1075,7 +1094,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const num = o.num ? `<b style="display:block;font-size:12px">${i + 1}</b>` : '';
     return `<button type="button" class="${cls}" ${o.style ? `style="${o.style}"` : ''} data-id="${esc(r.id)}" data-i="${i}" ${fut ? 'disabled' : ''} aria-label="${esc(aria)}">${num}${label}${memo ? '<span class="memo-dot" aria-hidden="true"></span>' : ''}${sub}</button>`;
   }
-  function stHtml(r) { return r.empty ? '<span class="st empty">잔여석</span>' : `<span class="st ${r.status === '퇴원예정' ? 'out' : ''}">${esc(r.status || '재원중')}</span>`; }
+  function stHtml(r) { return r.empty ? '<span class="st empty">잔여석</span>' : r.left ? `<span class="st out" title="그날 ${esc(r.status || '재원중')} · 지금은 명렬에 없어요">퇴원</span>` : `<span class="st ${r.status === '퇴원예정' ? 'out' : ''}">${esc(r.status || '재원중')}</span>`; }
 
   function renderSheet() {
     const rows = visibleRows();
@@ -2461,10 +2480,21 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     });
     return by;
   }
+  // 교육점수 학생 목록: 지금 좌석표 + 그달에 다녔지만 지금은 없는 학생(퇴원 · 다른 자리)
+  function edBase(withEmpty) {
+    const D = S.ed.data, base = S.rows.filter(r => withEmpty || !r.empty).map(r => r);
+    if (!D || !D.people) return base;
+    const have = new Set(base.filter(r => !r.empty).map(r => r.id));
+    D.people.filter(p => !have.has(p[0]) && String(p[2] || '').startsWith(S.floor + '-')).forEach(([id, name, seat, teacher, status, gone]) => {
+      const k = seatKey(seat); const r = { seat, hall: k[1], row: k[2], empty: false, id, name, teacher: teacher || '', status: gone ? '퇴원' : (status || ''), left: !!gone };
+      const i = base.findIndex(x => x.empty && x.seat === seat); if (i >= 0) base[i] = r; else base.push(r);
+    });
+    return base.sort((a, b) => cmpSeat(a.seat, b.seat));
+  }
   function edRows(withZero) {
     const E = S.ed, by = edCompute(), q = E.q.trim().toLowerCase();
     const has = (o, rs) => o && o.ev.some(e => rs.includes(e.reason));
-    return S.rows.filter(r => !r.empty).map(r => ({ r, o: by[r.id] || { ev: [], mon: [], cumEv: [], total: 0, mTotal: 0, cTotal: 0, summary: '', slots: [], cslots: [], voided: [] } }))
+    return edBase(false).map(r => ({ r, o: by[r.id] || { ev: [], mon: [], cumEv: [], total: 0, mTotal: 0, cTotal: 0, summary: '', slots: [], cslots: [], voided: [] } }))
       .filter(x => (E.hall === 'all' || x.r.hall === +E.hall) && (!E.t || x.r.teacher === E.t)
         && (!q || [x.r.name, x.r.seat, x.r.id, x.r.teacher].join(' ').toLowerCase().includes(q))
         && (E.view === 'all' ? (withZero || E.zero || x.o.total > 0) : E.view === 'sleep' ? has(x.o, ['취침', '취침강제하원(7회)']) : E.view === 'late' ? has(x.o, EDU_LATE) : x.o.total >= 10));
@@ -2476,12 +2506,12 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     $('edView').querySelectorAll('[data-ev]').forEach(b => b.classList.toggle('on', b.dataset.ev === E.view));
     const halls = [...new Set(S.rows.map(r => r.hall))].sort((a, b) => a - b);
     $('edHalls').innerHTML = [`<button type="button" data-eh="all" class="${E.hall === 'all' ? 'on' : ''}">전체</button>`].concat(halls.map(h => `<button type="button" data-eh="${h}" class="${String(E.hall) === String(h) ? 'on' : ''}">${h}관</button>`)).join('');
-    const ts = [...new Set(S.rows.filter(r => !r.empty && r.teacher).map(r => r.teacher))].sort();
+    const ts = [...new Set(edBase(false).filter(r => r.teacher).map(r => r.teacher))].sort();
     $('edT').innerHTML = '<option value="">전체</option>' + ts.map(t => `<option ${t === E.t ? 'selected' : ''}>${esc(t)}</option>`).join('');
     $('edZeroWrap').classList.toggle('hidden', E.view !== 'all');
     if (!S.data || !E.data) { $('edBody').innerHTML = '<div class="empty-note">불러오는 중…</div>'; return; }
     const rows = edRows();
-    const all = S.rows.filter(r => !r.empty), by = edCompute();
+    const all = edBase(false), by = edCompute();
     const cnt = (f) => all.filter(r => f(by[r.id] || { total: 0, ev: [] })).length;
     $('edNote').textContent = `${S.floor}층 · ${edWeekLabel()} · 점수 받은 학생 ${cnt(o => o.total > 0)}명 · 10점 이상 ${cnt(o => o.total >= 10)}명 · 이번 달 ${md(E.data.from)}~${md(E.data.to)} + 누적(7점 이상 항목, ${md(E.data.to)}까지)`;
     if (!rows.length) { $('edBody').innerHTML = `<div class="empty-note">${E.view === 'all' && !E.zero ? '이번 달 교육점수를 받은 학생이 없어요.' : '조건에 맞는 학생이 없어요.'}</div>`; return; }
@@ -2499,7 +2529,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     }
   }
   function openEduDetail(id) {
-    const r = S.rows.find(x => x.id === id); if (!r) return;
+    const r = edBase(false).find(x => x.id === id); if (!r) return;
     const o = edCompute()[id] || { ev: [], mon: [], cumEv: [], voided: [], total: 0, mTotal: 0, cTotal: 0 };
     const d = $('smsDlg');
     const line = (e, voided) => `<div class="arow2" style="${voided ? 'opacity:.55' : ''}"><span class="num" style="width:64px;font-weight:700">${mdY(e.day)}</span>
@@ -2574,7 +2604,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (!S.ed.data) return toast('아직 불러오는 중이에요.', { err: true });
     const E = S.ed, show = new Map(edRows(true).map(x => [x.r.id, x.o]));
     const full = E.view === 'all' && !E.t && !E.q.trim();          // 전체 보기면 빈자리까지 틀 그대로
-    const rows = S.rows.filter(r => (E.hall === 'all' || r.hall === +E.hall) && (r.empty ? full : show.has(r.id)));
+    const rows = edBase(true).filter(r => (E.hall === 'all' || r.hall === +E.hall) && (r.empty ? full : show.has(r.id)));
     const pages = edPages(rows); if (!pages.length) return toast('출력할 학생이 없어요.', { err: true });
     const w = window.open('', '_blank'); if (!w) return toast('팝업이 막혀 있어요. 팝업을 허용해 주세요.', { err: true });
     const now = new Date(Date.now() + 9 * 3600e3);
@@ -2610,6 +2640,64 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const cv = listCanvas(edTitle(), `${dayLabel(S.today)} 기준 · ${rows.length}명`, rows.map(({ r, o }) => ({ seat: r.seat, name: r.name, teacher: `${o.total}점`, note: o.summary })), { teacherCol: true });
     copyCanvas(cv, `${edTitle()}.png`);
   };
+
+  // ---------- 퇴원생 (명렬에서 빠진 학생) ----------
+  S.lf = { scope: 'floor', q: '', list: null, at: 0, key: '' };
+  async function loadLeft(force) {
+    const L = S.lf, key = `${L.scope}|${S.floor}`;
+    if (!force && L.key === key && Date.now() - L.at < 60e3) return;
+    if (L.key !== key) L.list = null; L.key = key; L.at = Date.now();
+    try {
+      const { data, error } = await db.rpc('work_left_list', { p_floor: L.scope === 'all' ? null : S.floor, p_q: '' }); if (error) throw error;
+      if (L.key !== key) return; L.list = data || []; L.err = '';
+    } catch (e) { L.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'); }
+    if (S.tab === 'left') renderLeft();
+  }
+  function renderLeft() {
+    const L = S.lf;
+    $('lfScope').innerHTML = [['floor', `${S.floor}층`], ['all', '전체 층']].map(([k, l]) => `<button type="button" data-lfs="${k}" class="${L.scope === k ? 'on' : ''}">${l}</button>`).join('');
+    if (!L.list) { $('lfBody').innerHTML = `<div class="empty-note" ${L.err ? 'style="color:var(--late)"' : ''}>${esc(L.err || '불러오는 중…')}</div>`; $('lfNote').textContent = ''; return; }
+    const q = L.q.trim().toLowerCase();
+    const list = L.list.filter(x => !q || [x.name, x.id, x.seat, x.teacher, x.class].join(' ').toLowerCase().includes(q));
+    $('lfNote').textContent = `퇴원생 ${L.list.length}명${q ? ` · 검색 ${list.length}명` : ''} · 명렬에서 빠진 날 기준, 최근 순 · 이 기능을 켠 날부터 쌓여요`;
+    if (!list.length) { $('lfBody').innerHTML = `<div class="empty-note">${L.list.length ? '검색에 맞는 학생이 없어요.' : '아직 퇴원생 기록이 없어요. 앞으로 명렬에서 빠지는 학생이 여기에 모여요.'}</div>`; return; }
+    $('lfBody').innerHTML = S.wide
+      ? `<div class="tbox"><table class="sheet lf-t"><thead><tr><th>이름</th><th>학번</th><th>마지막 좌석</th><th>담임</th><th>반</th><th>마지막 상태</th><th>명렬에서 빠진 날</th><th>학부모 연락처</th></tr></thead><tbody>${list.map(x => `
+          <tr data-lf="${esc(x.id)}"><td><button type="button" class="name-btn">${esc(x.name)}</button></td><td class="num">${esc(x.id)}</td><td class="num"><b>${esc(x.seat || '')}</b></td><td>${esc(x.teacher || '')}</td><td>${esc(x.class || '')}</td>
+          <td><span class="st out">${esc(x.status || '')}</span>${x.status_since && x.status_since !== x.left_at ? ` <small class="meta2">${esc(x.status_since.slice(5).replace('-', '/'))}~</small>` : ''}</td><td class="num">${esc(x.left_at)}</td><td class="num">${esc(x.parent_phone || '')}</td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="mlist">${list.map(x => `<div class="ex-card" data-lf="${esc(x.id)}"><div class="ex-h"><b class="num">${esc(x.seat || '')}</b> <button type="button" class="name-btn">${esc(x.name)}</button><span class="tch-b">${esc(x.teacher || '')}</span><span class="meta2" style="margin-left:auto">${esc(x.left_at)}</span></div>
+          <div class="meta2">${esc(x.id)}${x.class ? ' · ' + esc(x.class) : ''} · 마지막 상태 ${esc(x.status || '')}${x.parent_phone ? ' · ' + esc(x.parent_phone) : ''}</div></div>`).join('')}</div>`;
+  }
+  async function openLeft(id) {
+    const x = (S.lf.list || []).find(v => v.id === id); if (!x) return;
+    const d = $('smsDlg');
+    const shell = (inner) => `<div class="sheet-box" style="max-width:640px"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">${esc(x.seat || '')} · ${esc(x.teacher || '')}${x.class ? ' · ' + esc(x.class) : ''} · ${esc(x.id)}</div><div class="t2">${esc(x.name)} <small style="font-size:13px;color:var(--late)">퇴원</small></div></div></div>
+      <div style="max-height:62vh;overflow:auto">${inner}</div>
+      <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div></div>`;
+    d.innerHTML = shell('<p class="sms-note">불러오는 중…</p>'); d.classList.remove('hidden');
+    d.onclick = (ev) => { if (ev.target === d || ev.target.closest('[data-x]')) { d.classList.add('hidden'); d.innerHTML = ''; } };
+    try {
+      const { data, error } = await db.rpc('work_left_detail', { p_student_id: id }); if (error) throw error;
+      const att = data.att || [], cnt = { 1: 0, 2: 0, 3: 0 };
+      att.forEach(([, , c]) => [...String(c)].forEach(ch => { cnt[ch] = (cnt[ch] || 0) + 1; }));
+      const cell = (ch) => `<i class="lf-c c${ch}" title="${ch === '1' ? '출석' : ch === '2' ? '지각' : '결석'}"></i>`;
+      const info = `<div class="lf-info">
+        <div><span>처음 기록</span><b>${esc(x.first_seen)}</b></div><div><span>명렬에서 빠진 날</span><b>${esc(x.left_at)}</b></div>
+        <div><span>마지막 상태</span><b>${esc(x.status || '')}${x.status_since ? ` (${esc(x.status_since)}~)` : ''}</b></div>
+        <div><span>반</span><b>${esc(x.class || '-')}</b></div>
+        <div><span>학부모 연락처</span><b>${esc(x.parent_phone || '-')}</b></div>
+        <div><span>출결 기록</span><b>${att.length}일 · 지각 ${cnt[2]}교시 · 결석 ${cnt[3]}교시</b></div>
+        <div><span>이동 · 취침 기록</span><b>이동 ${data.move}건 · 취침 ${data.sleep}건</b></div></div>`;
+      const attHtml = att.length ? `<div class="sh-cap" style="margin-top:12px">출결 (최근 순)</div>${att.slice(0, 60).map(([day, seat, c]) =>
+        `<div class="lf-day"><span class="num">${esc(dayLabel(day))}</span><span class="num meta2">${esc(seat || '')}</span><span class="lf-cs">${[...String(c)].map(cell).join('')}</span></div>`).join('')}${att.length > 60 ? `<p class="sms-note">그 이전 ${att.length - 60}일은 생략</p>` : ''}` : '<p class="sms-note">출결 기록이 없어요.</p>';
+      const eduHtml = (data.edu || []).length ? `<div class="sh-cap" style="margin-top:12px">교육점수 기록</div>${data.edu.map(([day, t, r]) => `<div class="lf-day"><span class="num">${esc(day)}</span><span>${esc(r)}</span><span class="meta2">${esc(EDU_POINTS[String(r).trim()] ? EDU_POINTS[String(r).trim()] + '점' : '')}</span></div>`).join('')}` : '';
+      d.innerHTML = shell(info + attHtml + eduHtml);
+    } catch (e) { d.innerHTML = shell(`<p class="sms-note" style="color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</p>`); }
+  }
+  $('lfScope').onclick = (e) => { const b = e.target.closest('[data-lfs]'); if (!b) return; S.lf.scope = b.dataset.lfs; S.lf.list = null; renderLeft(); loadLeft(true); };
+  $('lfQ').oninput = (e) => { S.lf.q = e.target.value; renderLeft(); };
+  $('lfBody').addEventListener('click', (e) => { const r = e.target.closest('[data-lf]'); if (r) openLeft(r.dataset.lf); });
 
   // ---------- 등원 현황 ----------
   function renderStat() {
@@ -3230,7 +3318,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['left', 'tabLeft', 'viewLeft'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     // 묶음 메뉴: 지금 탭이 속한 묶음만 세부 메뉴에 보여요
@@ -3252,6 +3340,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('tabRep').onclick = () => setTab('rep');
   $('tabSleep').onclick = () => { setTab('sleep'); loadSleep(); };
   $('tabEdu').onclick = () => { setTab('edu'); loadEdu(); };
+  $('tabLeft').onclick = () => { setTab('left'); loadLeft(); };
   $('tabExam').onclick = () => { setTab('exam'); if (S.ex.list === null) loadExamList(); else loadExamSheet(); };
   $('tabAbs').onclick = () => { setTab('abs'); if (S.absMode === 'sms') loadSms(); };
   $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
@@ -3293,7 +3382,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   });
   $('toTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   render = keepScroll(render); renderAbs = keepScroll(renderAbs); renderSms = keepScroll(renderSms);
-  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam); renderSleep = keepScroll(renderSleep); renderEdu = keepScroll(renderEdu);
+  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam); renderSleep = keepScroll(renderSleep); renderEdu = keepScroll(renderEdu); renderLeft = keepScroll(renderLeft);
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
