@@ -2311,32 +2311,65 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const url = URL.createObjectURL(new Blob(['﻿' + [head.map(q).join(','), ...body].join('\r\n')], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `${edTitle()}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
+  // 출력 틀: 층별 페이지 나누기 (기존 "4층_출력용" 시트와 같은 6장). [시작 관+열, 끝 관+열]
+  //  다른 층은 관마다 한 장, 60줄이 넘으면 열 단위로 나눠요.
+  const EDU_PRINT_PAGES = { 4: [['1A', '1Z'], ['2A', '2Z'], ['3A', '3F'], ['3G', '4B'], ['4C', '4H'], ['4I', '5Z']] };
+  function edPages(rows) {
+    const key = (r) => `${String(r.hall).padStart(2, '0')}${r.row}`, norm = (k) => k.replace(/^(\d+)/, (m) => m.padStart(2, '0'));
+    let specs = EDU_PRINT_PAGES[S.floor];
+    if (!specs) {
+      specs = []; const byHall = {}; rows.forEach(r => (byHall[r.hall] ||= []).push(r));
+      Object.keys(byHall).sort((a, b) => a - b).forEach(h => {
+        let cur = null, n = 0; const letters = [...new Set(byHall[h].map(r => r.row))].sort();
+        letters.forEach(l => { const c = byHall[h].filter(r => r.row === l).length; if (!cur || n + c > 60) { cur = [h + l, h + l]; specs.push(cur); n = 0; } cur[1] = h + l; n += c; });
+      });
+    }
+    return specs.map(([a, b]) => {
+      const A = norm(a), B = norm(b), list = rows.filter(r => key(r) >= A && key(r) <= B);
+      const ha = a.match(/^\d+/)[0], hb = b.match(/^\d+/)[0], la = a.slice(ha.length), lb = b.slice(hb.length);
+      const first = list[0], lastR = list[list.length - 1];
+      const whole = (h, l, end) => { const ls = rows.filter(r => String(r.hall) === h).map(r => r.row).sort(); return !ls.length || (end ? l >= ls[ls.length - 1] : l <= ls[0]); };
+      let title;
+      if (ha === hb) title = whole(ha, la) && whole(hb, lb, true) ? `${S.floor}-${ha}관` : `${S.floor}-${ha}관 ${first ? first.row : la}열 ~ ${lastR ? lastR.row : lb}열`;
+      else title = `${S.floor}-${ha}관${whole(ha, la) ? '' : ` ${first ? first.row : la}열`} ~ ${S.floor}-${hb}관${whole(hb, lb, true) ? '' : ` ${lastR ? lastR.row : lb}열`}`;
+      return { title, list };
+    }).filter(pg => pg.list.length);
+  }
   $('edPrint').onclick = () => {
-    // A3 세로 · 게시용: 구분 · 이름 · 학번은 빼고, 점수 없는 학생도 모두 (전체 보기일 때)
-    const rows = edRows(true); if (!rows.length) return toast('출력할 학생이 없어요.', { err: true });
+    // 인쇄할 땐 0점 학생도 보기로 바꿔요
+    if (!S.ed.zero) { S.ed.zero = true; $('edZero').checked = true; renderEdu(); }
+    if (!S.ed.data) return toast('아직 불러오는 중이에요.', { err: true });
+    const E = S.ed, show = new Map(edRows(true).map(x => [x.r.id, x.o]));
+    const full = E.view === 'all' && !E.t && !E.q.trim();          // 전체 보기면 빈자리까지 틀 그대로
+    const rows = S.rows.filter(r => (E.hall === 'all' || r.hall === +E.hall) && (r.empty ? full : show.has(r.id)));
+    const pages = edPages(rows); if (!pages.length) return toast('출력할 학생이 없어요.', { err: true });
     const w = window.open('', '_blank'); if (!w) return toast('팝업이 막혀 있어요. 팝업을 허용해 주세요.', { err: true });
-    const now = new Date(Date.now() + 9 * 3600e3), hm = now.toISOString().slice(11, 16);
-    const printed = `출력 ${dayLabel(now.toISOString().slice(0, 10))} ${hm}`;
-    let last = null;
-    const body = rows.map(({ r, o }) => {
-      const g = r.hall !== last ? `<tr class="g"><td colspan="25">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
+    const now = new Date(Date.now() + 9 * 3600e3);
+    const printed = `출력 ${dayLabel(now.toISOString().slice(0, 10))} ${now.toISOString().slice(11, 16)}`;
+    const head = `<thead><tr><th>좌석</th><th>담임</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>이번달</th><th>누적</th><th>합계</th></tr></thead>`;
+    const line = (r) => {
+      if (r.empty) return `<tr class="em"><td class="k">${esc(r.seat)}</td><td></td>${'<td></td>'.repeat(23)}</tr>`;
+      const o = show.get(r.id);
       const sl = Array.from({ length: 20 }, (_, i) => { const t = o.slots[i] || ''; return `<td class="s${t && i >= o.mSlots ? ' c' : ''}">${esc(t).replace(/\((.+)\)$/, '<br>$1')}${i === 19 && o.slots.length > 20 ? ` +${o.slots.length - 20}` : ''}</td>`; }).join('');
-      return g + `<tr class="${o.total >= 10 ? 'hi' : ''}"><td class="k">${esc(r.seat)}</td><td>${esc(r.teacher)}</td>${sl}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total || ''}</td></tr>`;
+      return `<tr class="${o.total >= 10 ? 'hi' : ''}"><td class="k">${esc(r.seat)}</td><td>${esc(r.teacher)}</td>${sl}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total || ''}</td></tr>`;
+    };
+    const body = pages.map(pg => {
+      const rh = Math.min(9, Math.max(5, Math.floor((360 / pg.list.length) * 10) / 10));   // 한 장에 맞게 줄 높이(mm)
+      return `<section class="pg"><div class="hd"><h1>${esc(pg.title)}</h1><div class="sub"><b>${esc(edTitle())}</b><span>${esc(printed)}</span></div></div>
+        <table style="--rh:${rh}mm"><colgroup><col class="k"><col class="tc">${'<col>'.repeat(20)}<col class="n"><col class="n"><col class="n"></colgroup>${head}<tbody>${pg.list.map(line).join('')}</tbody></table></section>`;
     }).join('');
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(edTitle())}</title><style>
-      @page{size:A3 portrait;margin:8mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      body{font-family:'Malgun Gothic',sans-serif;font-size:9.5px;margin:0}
-      .hd{display:flex;align-items:flex-end;justify-content:space-between;margin:0 0 6px} h1{font-size:20px;margin:0} .pt{font-size:11px;color:#444}
-      table{border-collapse:collapse;width:100%;table-layout:fixed} th,td{border:1px solid #999;padding:3px 2px;text-align:center;overflow:hidden;white-space:nowrap}
-      th{background:#eee;font-size:10px} col.k{width:52px} col.tc{width:44px} col.n{width:34px}
-      td.k{font-weight:bold} td.s{font-size:8px;letter-spacing:-.4px;white-space:normal;word-break:keep-all;line-height:1.15;padding:2px 1px;height:22px} td.s.c{background:#F3E8FF;font-weight:bold}
-      td.t{font-weight:bold;font-size:11px} tr.hi td.t{color:#C0262D} tr.g td{background:#f5f5f5;text-align:left;font-weight:bold;padding-left:6px}
-      thead{display:table-header-group} tr{page-break-inside:avoid} .ft{margin-top:6px;font-size:10px;color:#555}</style></head><body>
-      <div class="hd"><h1>${esc(edTitle())}</h1><div class="pt">${esc(printed)}</div></div>
-      <table><colgroup><col class="k"><col class="tc">${'<col>'.repeat(20)}<col class="n"><col class="n"><col class="n"></colgroup>
-      <thead><tr><th>좌석</th><th>담임</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}</th>`).join('')}<th>이번달</th><th>누적</th><th>합계</th></tr></thead><tbody>${body}</tbody></table>
-      <div class="ft">이번 달 항목은 매월 1일 초기화 · 보라색 칸은 누적 항목(핸드폰 · 전자기기 · 무단이탈 · 무단결석, 초기화 없음) · ${esc(printed)}</div>
-      <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+      @page{size:A3 portrait;margin:7mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+      body{font-family:'Malgun Gothic',sans-serif;margin:0}
+      .pg{height:405mm;page-break-after:always;break-after:page;display:flex;flex-direction:column} .pg:last-child{page-break-after:auto;break-after:auto}
+      .hd{height:30mm;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px solid #000;border-bottom:0}
+      h1{font-size:34pt;margin:0;line-height:1.1} .sub{display:flex;gap:16px;font-size:11pt;margin-top:2mm;color:#333}
+      table{border-collapse:collapse;width:100%;table-layout:fixed;border:1.5px solid #000} th,td{border:1px solid #777;padding:0 1px;text-align:center;overflow:hidden;white-space:nowrap}
+      th{background:#e9e9e9;font-size:10pt;height:8mm} td{height:var(--rh);font-size:10pt}
+      col.k{width:21mm} col.tc{width:15mm} col.n{width:12mm}
+      td.k{font-weight:bold} td.s{font-size:7.5pt;letter-spacing:-.4px;white-space:normal;word-break:keep-all;line-height:1.1}
+      td.s.c{background:#F3E8FF;font-weight:bold} td.t{font-weight:bold;font-size:12pt} tr.hi td.t{color:#C0262D} tr.em td{color:#999}
+      </style></head><body>${body}<script>window.onload=()=>{window.print();}<\/script></body></html>`);
     w.document.close();
   };
   $('edImg').onclick = () => {
