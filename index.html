@@ -320,6 +320,11 @@ table.rep tr.tot td.adj{background:#FEF3C7}
 .sh-cap{font-size:12px;font-weight:700;color:var(--sub);margin:8px 2px 0}
 .xbs{display:flex;gap:6px;flex-wrap:wrap}
 .tch-b.ext{background:#FEF3C7;color:#92400E}
+.ex-all{border:1px dashed #C3C8D0;background:#fff;color:var(--sub);border-radius:8px;min-height:40px;padding:0 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.ex-t td.c .cell{width:72px}
+#viewExam .halls{flex-wrap:nowrap;overflow-x:auto;max-width:100%}
+#viewExam .halls button{white-space:nowrap;flex-shrink:0}
+.ex-k .kpi .bar{margin-top:6px}
 .xb{min-width:58px;height:46px;border:1.5px solid #D5D9E0;background:#fff;border-radius:10px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;padding:0 8px;color:var(--sub)}
 .xb b{font-size:14px;color:var(--ink)} .xb small{font-size:11px}
 .xb.on{background:var(--ok);border-color:var(--ok);color:#fff} .xb.on b{color:#fff}
@@ -1613,7 +1618,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
 
   // ---------- 모의고사 출석부 ----------
   //  시험 좌석 순서로 과목별 응시 체크 (처음엔 모두 미응시 → 누르면 응시) · 응시현황 · 미응시자 명단
-  S.ex = { list: null, id: null, data: null, mode: 'check', hall: 'all', q: '', onlyMiss: false, basis: [0, 1], busy: 0, rooms: [], room: null };
+  S.ex = { list: null, id: null, data: null, mode: 'check', hall: 'all', q: '', onlyMiss: false, basis: [0, 1], busy: 0, rooms: [], room: null, view: 'all', sub: 0 };
   const exShort = (s) => ({ '국어': '국', '수학': '수', '영어': '영', '통합사회': '사', '통합과학': '과', '한국사': '한' }[s] || s.slice(0, 1));
   const exHall = (seat, r) => { const m = /^(\d+-\d+)/.exec(seat || ''); return m ? m[1] + '관' : ((r && r.room) || '기타'); };
   const exTeacher = (r) => r.ext ? '외부생' : (r.teacher || '');
@@ -1660,38 +1665,61 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     $('exNote').textContent = `${X.room ? X.room + ' 고사장' : '전체 고사장'} ${D.rows.length}명${nExt ? ` (외부생 ${nExt}명)` : ''} · ${linkNote}${nExt ? ' · 외부생은 출석부 연동 안 함' : ''}`;
     if (X.mode === 'stat') return renderExamStat(D);
     if (X.mode === 'miss') return renderExamMiss(D);
-    // 응시 체크
+    // 응시 체크 — 출결 화면과 같은 모양 (전 과목 / 과목별 · 표 / 휴대폰 열별 목록)
     const halls = [...new Set(D.rows.map(r => exHall(r.seat, r)))];
     if (X.hall !== 'all' && !halls.includes(X.hall)) X.hall = 'all';
+    if (X.sub >= subs.length) X.sub = 0;
+    const one = X.view === 'sub', SI = X.sub;          // 과목별 보기: 고른 과목 하나만 크게
     const q = X.q.trim().toLowerCase();
     const rows = D.rows.filter(r => (X.hall === 'all' || exHall(r.seat, r) === X.hall)
-      && (!X.onlyMiss || subs.some((s, i) => !exTook(r, i)))
+      && (!X.onlyMiss || (one ? !exTook(r, SI) : subs.some((s, i) => !exTook(r, i))))
       && (!q || [r.name, r.seat, r.id, r.no, exTeacher(r), r.orig, r.room].join(' ').toLowerCase().includes(q)));
     const took = (i) => D.rows.filter(r => exTook(r, i)).length;
-    const btns = (r) => subs.map((s, i) => `<button type="button" class="xb ${exTook(r, i) ? 'on' : ''}" data-xs="${esc(r.id)}" data-xi="${i + 1}" aria-pressed="${exTook(r, i)}" aria-label="${esc(r.name)} ${esc(s)} ${exTook(r, i) ? '응시' : '미응시'}"><b>${S.wide ? esc(s) : esc(exShort(s))}</b><small>${exTook(r, i) ? '응시' : '미응시'}</small></button>`).join('')
-      + `<button type="button" class="xb all ${subs.every((s, i) => exTook(r, i)) ? 'on' : ''}" data-xs="${esc(r.id)}" data-xi="0" aria-label="${esc(r.name)} 전 과목">${subs.every((s, i) => exTook(r, i)) ? (S.wide ? '전체<br>취소' : '취소') : (S.wide ? '전 과목<br>응시' : '전체')}</button>`;
+    const per = (s) => { const p = (E.periods || {})[s] || []; return p.length ? p.join('·') + '교시' : ''; };
+    const cell = (r, i, o = {}) => { const on = exTook(r, i);
+      return `<button type="button" class="cell ${o.wide ? 'wide' : ''} ${on ? 's1' : 's3'}" ${o.style ? `style="${o.style}"` : ''} data-xs="${esc(r.id)}" data-xi="${i + 1}" aria-pressed="${on}" aria-label="${esc(r.seat)} ${esc(r.name)} ${esc(subs[i])} ${on ? '응시' : '미응시'}">${o.num ? `<b style="display:block;font-size:12px">${esc(exShort(subs[i]))}</b>` : ''}${on ? '응시' : '미응시'}</button>`; };
+    const allBtn = (r) => { const all = subs.every((s, i) => exTook(r, i));
+      return `<button type="button" class="ex-all" data-xs="${esc(r.id)}" data-xi="0" aria-label="${esc(r.name)} 전 과목 ${all ? '취소' : '응시'}">${all ? '전체 취소' : '전체 응시'}</button>`; };
     const top = `<div class="kpis ex-k" style="grid-template-columns:repeat(${subs.length + 1},minmax(0,1fr))">
         <div class="kpi"><div class="l">시험 보는 학생</div><div class="v">${D.rows.length}명</div></div>
-        ${subs.map((s, i) => `<div class="kpi"><div class="l">${esc(s)} 응시</div><div class="v">${took(i)} <small>/ ${D.rows.length}</small></div></div>`).join('')}</div>
-      <div class="toolbar" style="margin:10px 0">
+        ${subs.map((s, i) => `<button type="button" class="kpi ${one && SI === i ? 'on' : ''}" data-xsub="${i}" style="text-align:left"><div class="l">${esc(s)} 응시<span class="go">${one && SI === i ? '보는 중' : '과목별 ›'}</span></div><div class="v">${took(i)} <small>/ ${D.rows.length}</small></div><div class="bar"><i style="width:${D.rows.length ? Math.round(took(i) / D.rows.length * 100) : 0}%"></i></div></button>`).join('')}</div>
+      <div class="toolbar" style="margin-top:10px">
+        <div class="seg" role="group" aria-label="보기 범위"><button type="button" data-xv="all" class="${one ? '' : 'on'}">전 과목</button><button type="button" data-xv="sub" class="${one ? 'on' : ''}">과목별</button></div>
+        ${one ? `<div class="pills" role="group" aria-label="과목">${subs.map((s, i) => `<button type="button" data-xsub="${i}" class="${SI === i ? 'on' : ''}" aria-pressed="${SI === i}">${esc(s)}</button>`).join('')}</div>` : ''}
+      </div>
+      <div class="toolbar" style="margin:8px 0 10px">
         <div class="halls" role="group" aria-label="관">${['all', ...halls].map(h => `<button type="button" data-xh="${esc(h)}" class="${X.hall === h ? 'on' : ''}">${h === 'all' ? '전체' : esc(h)}</button>`).join('')}</div>
-        <label class="chk"><input type="checkbox" id="exOnlyMiss" ${X.onlyMiss ? 'checked' : ''}> 미응시 과목 있는 학생만</label>
+        <label class="chk"><input type="checkbox" id="exOnlyMiss" ${X.onlyMiss ? 'checked' : ''}> ${one ? `${esc(subs[SI])} 미응시만` : '미응시 과목 있는 학생만'}</label>
         <label class="ctl search" style="margin-left:auto"><span class="sr">검색</span><input type="search" id="exQ" placeholder="이름 · 좌석 · 수험번호" value="${esc(X.q)}"></label>
       </div>`;
-    const noseat = D.noseat.length ? `<details class="sms-tpl" style="margin-top:12px"><summary>시험 좌석이 없는 학생 ${D.noseat.length}명 <small>엑셀에 시험 좌석번호가 비어 있어요 (기존 좌석이 ${S.floor}층)</small></summary>
+    const noseat = D.noseat.length ? `<details class="sms-tpl" style="margin-top:12px"><summary>시험 좌석이 없는 학생 ${D.noseat.length}명 <small>엑셀에 시험 좌석번호가 비어 있어요</small></summary>
         <div style="font-size:13px;line-height:1.8;margin-top:8px">${D.noseat.map(x => `${esc(x.orig || '')} ${esc(x.name || '')} <span style="color:var(--mute)">${esc(x.teacher || '')} ${esc(x.no || '')}</span>`).join('<br>')}</div></details>` : '';
+    const rowKey = (r) => { const m = /^(?:\d+-\d+|\d+)([A-Z]+)/.exec(r.seat || ''); return exHall(r.seat, r) + ' ' + (m ? m[1] + '열' : ''); };
     let list;
     if (!rows.length) list = `<div class="empty-note">${D.rows.length ? '조건에 맞는 학생이 없어요.' : '이 고사장에 학생이 없어요. 위에서 고사장을 바꾸거나 명단을 올려 주세요.'}</div>`;
     else if (S.wide) {
+      const nc = one ? 9 : 8 + subs.length;
+      const head = `<tr><th>시험 좌석</th><th>이름</th><th>수험번호</th><th>담임</th><th>학년</th><th>계열</th><th>기존 좌석</th>`
+        + (one ? `<th class="p cur" style="width:170px">${esc(subs[SI])}<span>${esc(per(subs[SI]))}</span></th>`
+               : subs.map(s => `<th class="p">${esc(s)}<span>${esc(per(s))}</span></th>`).join('')) + `<th></th></tr>`;
       let last = null;
-      list = `<div class="tbox"><table class="sheet ex-t"><thead><tr><th>시험 좌석</th><th>이름</th><th>수험번호</th><th>학년 · 계열</th><th>기존 좌석</th><th>${subs.map(esc).join(' · ')}</th></tr></thead><tbody>${rows.map(r => {
-        const h = exHall(r.seat, r); const g = X.hall === 'all' && h !== last ? `<tr class="grp"><td colspan="6">${esc(h)}</td></tr>` : ''; last = h;
-        return g + `<tr><td class="num"><b>${esc(r.seat)}</b></td><td><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b ${r.ext ? 'ext' : ''}">${esc(exTeacher(r))}</span></td>
-          <td class="num">${esc(r.no || '')}</td><td>${r.ext ? '외부' : esc(r.grade || '')} · ${esc(r.track || '')}</td><td class="num" style="color:var(--sub)">${esc(r.orig || '')}</td><td><div class="xbs">${btns(r)}</div></td></tr>`;
+      list = `<div class="tbox"><table class="sheet ex-t"><thead>${head}</thead><tbody>${rows.map(r => {
+        const h = exHall(r.seat, r); const g = X.hall === 'all' && h !== last ? `<tr class="grp"><td colspan="${nc}">${esc(h)}</td></tr>` : ''; last = h;
+        return g + `<tr><td class="num"><b>${esc(r.seat)}</b></td><td><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button>${r.ext ? '<span class="tch-b ext">외부생</span>' : ''}</td>
+          <td class="num">${esc(r.no || '')}</td><td>${r.ext ? '' : esc(r.teacher || '')}</td><td>${r.ext ? '외부' : esc(r.grade || '')}</td><td>${esc(r.track || '')}</td><td class="num" style="color:var(--sub)">${esc(r.orig || '')}</td>
+          ${one ? `<td class="c cur">${cell(r, SI, { wide: true })}</td>` : subs.map((s, i) => `<td class="c">${cell(r, i)}</td>`).join('')}<td>${one ? '' : allBtn(r)}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     } else {
-      list = `<div class="mlist">${rows.map(r => `<div class="ex-card"><div class="ex-h"><b class="num">${esc(r.seat)}</b> <button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b ${r.ext ? 'ext' : ''}">${esc(exTeacher(r))}</span></div>
-          <div class="meta2 num">${esc(r.no || '')} · ${r.ext ? '외부' : esc(r.grade || '')} · ${esc(r.track || '')}${r.orig ? ' · 기존 ' + esc(r.orig) : ''}</div><div class="xbs">${btns(r)}</div></div>`).join('')}</div>`;
+      const groups = []; rows.forEach(r => { const k = rowKey(r); let g = groups[groups.length - 1]; if (!g || g.k !== k) { g = { k, rows: [] }; groups.push(g); } g.rows.push(r); });
+      list = `<div class="mlist">${groups.map(g => {
+        const miss = g.rows.filter(r => one ? !exTook(r, SI) : subs.some((s, i) => !exTook(r, i))).length;
+        return `<div><div class="mgrp-h"><span>${esc(g.k)}</span><span style="font-weight:500">${miss ? '미응시 ' + miss : '모두 응시'}</span></div><div class="mgrp-b">${g.rows.map(r => `
+          <div class="mrow"><div class="mtop"><span class="mseat">${esc(String(r.seat).replace(/^\d+-/, ''))}</span>
+            <div class="minfo"><span class="mname"><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button>${r.ext ? '<span class="tch-b ext">외부생</span>' : ''}</span>
+              <span class="mmeta num">${esc(r.no || '')} · ${r.ext ? '외부' : esc(r.teacher || '') + ' · ' + esc(r.grade || '')} · ${esc(r.track || '')}</span></div>
+            ${one ? cell(r, SI, { style: 'width:78px;min-height:46px;font-size:13px' }) : allBtn(r)}</div>
+            ${one ? '' : `<div class="mcells" style="grid-template-columns:repeat(${subs.length},minmax(0,1fr))">${subs.map((s, i) => cell(r, i, { num: true })).join('')}</div>`}</div>`).join('')}</div></div>`;
+      }).join('')}</div>`;
     }
     const qFocus = document.activeElement && document.activeElement.id === 'exQ';
     if (qFocus) { $('exList').innerHTML = list; return; }       // 검색 입력 중엔 목록만 (한글 입력 안 끊기게)
@@ -1777,6 +1805,8 @@ table.rep tr.tot td.adj{background:#FEF3C7}
   $('exBody').addEventListener('click', (e) => {
     const b = e.target.closest('[data-xs]'); if (b) return exSet(b.dataset.xs, +b.dataset.xi);
     const h = e.target.closest('[data-xh]'); if (h) { S.ex.hall = h.dataset.xh; return renderExam(); }
+    const v = e.target.closest('[data-xv]'); if (v) { S.ex.view = v.dataset.xv; return renderExam(); }
+    const sb = e.target.closest('[data-xsub]'); if (sb) { const i = +sb.dataset.xsub; S.ex.view = (S.ex.view === 'sub' && S.ex.sub === i && sb.classList.contains('kpi')) ? 'all' : 'sub'; S.ex.sub = i; return renderExam(); }
     const o = e.target.closest('[data-open]'); if (o && S.rows.some(r => r.id === o.dataset.open)) return openDetail(o.dataset.open, 0);
   });
   $('exBody').addEventListener('change', (e) => { if (e.target.id === 'exOnlyMiss') { S.ex.onlyMiss = e.target.checked; renderExam(); } });
