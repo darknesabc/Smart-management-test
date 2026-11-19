@@ -121,6 +121,7 @@ table.sheet tr.grp td{background:#FAFBFC;color:var(--sub);font-weight:700;font-s
 /* PC · 태블릿 가로: 위쪽(메뉴 · 숫자 · 필터)은 그대로, 아래 목록만 스크롤 */
 @media (min-width:900px){
   .fit{overflow:auto;overscroll-behavior:contain;border-radius:16px}
+  .fit > *{flex-shrink:0}            /* 목록 칸이 눌려 잘리지 않고 넘쳐서 스크롤되게 */
   .fit .abs-sec h3{position:sticky;top:0;z-index:3}
   main.fitted{padding-bottom:16px}
 }
@@ -1019,7 +1020,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     });
     return { R, P, open, targets, skipped, sent, ex };
   }
-  const phoneOf = (r) => ((S.sms && S.sms.phones) || {})[r.id] || '';
+  const phoneOf = (r) => { const v = String(((S.sms && S.sms.phones) || {})[r.id] || '').trim(); return v.replace(/\D/g, '').length >= 8 ? v : ''; };   // '-' 같은 값은 연락처 없음
   // 문자 문구: {교시} → 1차 "1, 2교시" / 4교시 / 7교시
   const SMS_DEFAULT = `[러셀대치 바른공부 자습전용관]\n\n※ 자습전용관 미등원 안내\n\n금일 {교시} 학부모님의 자녀가 미등원 하였습니다. (지각생 포함하여 발송됩니다)\n\n★ 미등원 설문에 사유 남겨주시면 교육점수가 제외됩니다.★ \n☞ https://forms.gle/1PY8eD6zmzUJNqWd6\n\n★ 자습전용관 출석여부 확인은 아래 카카오톡 채널을 이용해 주시기 바랍니다.★ \n☞ http://pf.kakao.com/_PWwwG\n\n★ 특별한 사유 없이 지각 또는 미등원한 경우에 교육점수 1점 부여됩니다. ★\n\n* 미등원 문자는 바른공부 자습전용관에 현재 출석한 학생을 제외한 모든 미등원 학생의 학부모님께 발송됩니다(지각자 포함).\n* 단, 스케줄 또는 특이사항이 있어 미등원한 학생은 담임선생님 확인 후 교육점수가 부여되지 않습니다.\n\n★ 기타 문의사항은 아래 {층}층 직통번호로 문의주시기 바랍니다.\n  (직통번호)\n\n감사합니다.`;
   const roundText = (R) => R === 1 ? '1, 2교시' : `${R}교시`;
