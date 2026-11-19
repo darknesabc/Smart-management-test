@@ -347,7 +347,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 .ed-t td.es{font-size:11px;padding:4px 3px;white-space:nowrap;color:var(--sub)}
 .ed-t td.es.t-late{background:#FFF4E5;color:#9A3412} .ed-t td.es.t-bad{background:#FDECEA;color:var(--late);font-weight:700}
 .ed-t td.es.t-sl{background:var(--schSoft);color:var(--schInk)} .ed-t td.es.t-etc{background:#EEF2FF;color:#3730A3}
-.ed-t td.et{font-weight:800;font-size:15px} .et.hi{color:var(--late)}
+.ed-t td.et{font-weight:800;font-size:15px} .ed-t td.et.cu{color:#6B21A8}
+.ech.t-cu{background:#F3E8FF;color:#6B21A8;font-weight:700} .et.hi{color:var(--late)}
 .ed-t td.esum{white-space:nowrap;color:var(--sub);font-size:12px}
 .ed-t tr[data-eid]{cursor:pointer} .ed-t tr[data-eid]:hover td{background:#FAFAFB}
 .echips{display:flex;flex-wrap:wrap;gap:4px}
@@ -611,7 +612,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     </div>
     <p class="sms-note" id="edNote" style="margin:0"></p>
     <div id="edBody"></div>
-    <div class="legend"><span>지각 = 출결 지각 · 태블릿 지각 (하루 1점) · 미등원 문자 2번 = 무단지각 5점 · 3번 = 무단결석 7점 (같은 날은 큰 것 하나만) · 취침 3회마다 1점</span><span>학생을 누르면 내역과 제외</span></div>
+    <div class="legend"><span>지각 = 출결 지각 · 태블릿 지각 (하루 1점) · 미등원 문자 2번 = 무단지각 5점 · 3번 = 무단결석 7점 (같은 날은 큰 것 하나만) · 취침 하루 3회마다 1점 · 7점 이상 항목(핸드폰 · 전자기기 · 무단이탈 · 무단결석)은 누적, 나머지는 매월 1일 초기화</span><span>학생을 누르면 내역과 제외</span></div>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -2167,19 +2168,21 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   };
 
   // ---------- 교육점수 리포트 (월별) ----------
-  //  이번 달: 월별 초기화 항목 + 취침 + 출결 지각 + 미등원 문자 2번 무단지각 / 3번 무단결석
-  //  (핸드폰 · 전자기기 · 무단이탈 같은 누적 항목은 관리 페이지에서)
+  //  이번 달: 7점 미만 항목 (취침 · 지각 · 무단지각 · 원내대화 …) — 매월 1일 초기화
+  //  누적    : 7점 이상 항목 (핸드폰 · 전자기기 · 무단이탈 · 무단결석) — 초기화 없이 계속 합산
+  //  지각 = 출결 지각 · 미등원 문자 2번 = 무단지각 · 3번 = 무단결석
   const EDU_POINTS = {           // 사유별 점수 — 관리자 페이지와 같은 표. 바뀌면 여기만 고치면 돼요
     '전자기기 부정사용': 10, '핸드폰 무단사용': 7, '핸드폰 미제출': 7, '무단결석': 7, '무단이탈': 7,
     '타층/타관 무단출입': 5, '원내대화': 5, '무단지각': 5, '모의고사 무단 1회 미응시': 5,
     '취침강제하원(7회)': 3, '음식물섭취': 3, '입/퇴실 미준수': 3,
     '지각': 1, '자습 중 이동 태블릿 미입력': 1, '취침': 1 };
-  const EDU_MONTHLY = ['원내대화', '무단지각', '입/퇴실 미준수', '취침강제하원(7회)', '지각', '타층/타관 무단출입', '음식물섭취',
-    '모의고사 무단 1회 미응시', '자습 중 이동 태블릿 미입력', '취침', '무단결석'];
+  const EDU_CUM_MIN = 7;                                    // 이 점수 이상이면 누적 항목
+  const EDU_CUM = Object.keys(EDU_POINTS).filter(r => EDU_POINTS[r] >= EDU_CUM_MIN);
   const EDU_LATE = ['지각', '무단지각', '무단결석'];          // 같은 날엔 가장 큰 것 하나만
   S.ed = { month: null, data: null, key: '', view: 'all', hall: 'all', t: '', q: '', zero: false };
   const edMonthOf = (d) => d.slice(0, 7) + '-01';
   const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
+  const mdY = (d) => (d.slice(0, 4) !== (S.ed.month || S.today).slice(0, 4) ? `${d.slice(2, 4)}년 ` : '') + md(d);
   function edWeekLabel() {
     const m = S.ed.month; if (S.today.slice(0, 7) !== m.slice(0, 7)) return `${+m.slice(5, 7)}월 최종`;
     const first = new Date(m + 'T00:00:00Z'); const off = (first.getUTCDay() + 6) % 7;      // 월요일 시작
@@ -2189,7 +2192,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (!S.ed.month) S.ed.month = edMonthOf(S.today || S.day);
     const key = S.ed.month + '|' + S.floor; if (S.ed.key !== key) S.ed.data = null; S.ed.key = key; S.ed.at = Date.now();
     try {
-      const { data, error } = await db.rpc('work_edu_month', { p_month: S.ed.month, p_floor: S.floor }); if (error) throw error;
+      const { data, error } = await db.rpc('work_edu_month', { p_month: S.ed.month, p_floor: S.floor, p_cum: EDU_CUM }); if (error) throw error;
       if (S.ed.key !== key) return; S.ed.data = data; if (S.tab === 'edu') renderEdu();
     } catch (e) { if (S.ed.key === key && !S.ed.data) $('edBody').innerHTML = `<div class="empty-note" style="color:var(--late)">${esc(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'))}</div>`; }
   }
@@ -2201,29 +2204,32 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const bump = (id, day, lv, src) => { const o = get(id).lateDay; if (!o[day] || o[day].lv < lv) o[day] = { lv, src }; };
     (D.edu || []).forEach(([id, day, time, reason, source]) => {
       reason = String(reason || '').trim();
-      if (!EDU_POINTS[reason] || !EDU_MONTHLY.includes(reason)) return;           // 점수표에 없거나 누적 항목은 빼요
+      if (!EDU_POINTS[reason]) return;                                              // 점수표에 없는 사유는 빼요
+      if (day < D.from && !EDU_CUM.includes(reason)) return;                        // 지난달 이전은 누적 항목만
       if (EDU_LATE.includes(reason)) return bump(id, day, lvl[reason], source === 'kiosk' ? '태블릿' : '기록');
       const o = get(id);
       if (reason !== '취침') { const k = `${day}|${time}|${reason}`; if (o.seen.has(k)) return; o.seen.add(k); }   // 같은 시간 같은 사유 두 번은 한 번만
-      o.ev.push({ day, reason, pts: EDU_POINTS[reason], src: source === 'patrol' ? '순찰' : source === 'kiosk' ? '태블릿' : '기록' });
+      o.ev.push({ day, reason, pts: EDU_POINTS[reason], cum: EDU_CUM.includes(reason), src: source === 'patrol' ? '순찰' : source === 'kiosk' ? '태블릿' : '기록' });
     });
     (D.late || []).forEach(([id, day]) => bump(id, day, 1, '출결 지각'));
-    (D.sms || []).forEach(([id, day, n]) => { if (n >= 3) bump(id, day, 3, '미등원 문자 3번'); else if (n >= 2) bump(id, day, 2, '미등원 문자 2번'); });
+    (D.sms || []).forEach(([id, day, n]) => { if (day < D.from && n < 3) return; if (n >= 3) bump(id, day, 3, '미등원 문자 3번'); else if (n >= 2) bump(id, day, 2, '미등원 문자 2번'); });
     Object.entries(by).forEach(([id, o]) => {
-      Object.entries(o.lateDay).forEach(([day, x]) => { const r = lvName[x.lv]; o.ev.push({ day, reason: r, pts: EDU_POINTS[r], src: x.src }); });
+      Object.entries(o.lateDay).forEach(([day, x]) => { const r = lvName[x.lv]; if (day < D.from && !EDU_CUM.includes(r)) return; o.ev.push({ day, reason: r, pts: EDU_POINTS[r], cum: EDU_CUM.includes(r), src: x.src }); });
       o.voided = o.ev.filter(e => voidKey.has(`${id}|${e.day}|${e.reason}`));
       o.ev = o.ev.filter(e => !voidKey.has(`${id}|${e.day}|${e.reason}`)).sort((a, b) => a.day.localeCompare(b.day));
-      o.total = o.ev.reduce((a, e) => a + e.pts, 0);
-      const sum = {}; o.ev.forEach(e => { sum[e.reason] = (sum[e.reason] || 0) + e.pts; });
-      o.summary = Object.entries(sum).sort((a, b) => b[1] - a[1]).map(([r, p]) => `${r.replace('(7회)', '')} ${p}점`).join(', ');
-      o.slots = o.ev.flatMap(e => Array(e.pts).fill(`${e.reason.replace('(7회)', '')}(${md(e.day)})`));
+      o.mon = o.ev.filter(e => !e.cum); o.cumEv = o.ev.filter(e => e.cum);
+      o.mTotal = o.mon.reduce((a, e) => a + e.pts, 0); o.cTotal = o.cumEv.reduce((a, e) => a + e.pts, 0); o.total = o.mTotal + o.cTotal;
+      const sumOf = (list) => { const sum = {}; list.forEach(e => { sum[e.reason] = (sum[e.reason] || 0) + e.pts; }); return Object.entries(sum).sort((a, b) => b[1] - a[1]).map(([r, p]) => `${r.replace('(7회)', '')} ${p}점`).join(', '); };
+      o.summary = [sumOf(o.mon), o.cumEv.length ? '누적 ' + sumOf(o.cumEv) : ''].filter(Boolean).join(' · ');
+      o.slots = o.mon.flatMap(e => Array(e.pts).fill(`${e.reason.replace('(7회)', '')}(${md(e.day)})`));
+      o.cslots = o.cumEv.map(e => `${e.reason}(${mdY(e.day)})`);
     });
     return by;
   }
   function edRows() {
     const E = S.ed, by = edCompute(), q = E.q.trim().toLowerCase();
     const has = (o, rs) => o && o.ev.some(e => rs.includes(e.reason));
-    return S.rows.filter(r => !r.empty).map(r => ({ r, o: by[r.id] || { ev: [], total: 0, summary: '', slots: [], voided: [] } }))
+    return S.rows.filter(r => !r.empty).map(r => ({ r, o: by[r.id] || { ev: [], mon: [], cumEv: [], total: 0, mTotal: 0, cTotal: 0, summary: '', slots: [], cslots: [], voided: [] } }))
       .filter(x => (E.hall === 'all' || x.r.hall === +E.hall) && (!E.t || x.r.teacher === E.t)
         && (!q || [x.r.name, x.r.seat, x.r.id, x.r.teacher].join(' ').toLowerCase().includes(q))
         && (E.view === 'all' ? (E.zero || x.o.total > 0) : E.view === 'sleep' ? has(x.o, ['취침', '취침강제하원(7회)']) : E.view === 'late' ? has(x.o, EDU_LATE) : x.o.total >= 10));
@@ -2242,31 +2248,32 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const rows = edRows();
     const all = S.rows.filter(r => !r.empty), by = edCompute();
     const cnt = (f) => all.filter(r => f(by[r.id] || { total: 0, ev: [] })).length;
-    $('edNote').textContent = `${S.floor}층 · ${edWeekLabel()} · 점수 받은 학생 ${cnt(o => o.total > 0)}명 · 10점 이상 ${cnt(o => o.total >= 10)}명 · 이번 달(${md(E.data.from)}~${md(E.data.to)}) 기준, 누적 항목은 관리 페이지에서`;
+    $('edNote').textContent = `${S.floor}층 · ${edWeekLabel()} · 점수 받은 학생 ${cnt(o => o.total > 0)}명 · 10점 이상 ${cnt(o => o.total >= 10)}명 · 이번 달 ${md(E.data.from)}~${md(E.data.to)} + 누적(7점 이상 항목, ${md(E.data.to)}까지)`;
     if (!rows.length) { $('edBody').innerHTML = `<div class="empty-note">${E.view === 'all' && !E.zero ? '이번 달 교육점수를 받은 학생이 없어요.' : '조건에 맞는 학생이 없어요.'}</div>`; return; }
     const tone = (s) => /취침/.test(s) ? 'sl' : /무단/.test(s) ? 'bad' : /지각/.test(s) ? 'late' : 'etc';
     if (S.wide) {
       let last = null;
-      $('edBody').innerHTML = `<div class="tbox"><table class="sheet ed-t"><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th><th>합계</th><th>요약</th>${Array.from({ length: 20 }, (_, i) => `<th class="sl-h">${i + 1}점</th>`).join('')}</tr></thead><tbody>${rows.map(({ r, o }) => {
-        const g = E.hall === 'all' && r.hall !== last ? `<tr class="grp"><td colspan="27">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
+      $('edBody').innerHTML = `<div class="tbox"><table class="sheet ed-t"><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th><th>이번 달</th><th>누적</th><th>합계</th><th>요약</th>${Array.from({ length: 20 }, (_, i) => `<th class="sl-h">${i + 1}점</th>`).join('')}<th>누적 내역</th></tr></thead><tbody>${rows.map(({ r, o }) => {
+        const g = E.hall === 'all' && r.hall !== last ? `<tr class="grp"><td colspan="30">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
         const sl = Array.from({ length: 20 }, (_, i) => { const s = o.slots[i]; return `<td class="es ${s ? 't-' + tone(s) : ''}">${s ? esc(s) : ''}${i === 19 && o.slots.length > 20 ? ` <b>+${o.slots.length - 20}</b>` : ''}</td>`; }).join('');
-        return g + `<tr class="${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><td>${stHtml(r)}</td><td class="num"><b>${esc(r.seat)}</b></td><td>${esc(r.teacher)}</td><td><button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button></td><td class="num">${esc(r.id)}</td><td class="et ${o.total >= 10 ? 'hi' : ''}">${o.total}</td><td class="esum">${esc(o.summary)}</td>${sl}</tr>`;
+        return g + `<tr class="${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><td>${stHtml(r)}</td><td class="num"><b>${esc(r.seat)}</b></td><td>${esc(r.teacher)}</td><td><button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button></td><td class="num">${esc(r.id)}</td><td class="et">${o.mTotal || ''}</td><td class="et cu">${o.cTotal || ''}</td><td class="et ${o.total >= 10 ? 'hi' : ''}">${o.total}</td><td class="esum">${esc(o.summary)}</td>${sl}<td class="esum">${esc(o.cslots.join(', '))}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     } else {
-      $('edBody').innerHTML = `<div class="mlist">${rows.map(({ r, o }) => `<div class="ex-card ${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><div class="ex-h"><b class="num">${esc(r.seat.replace(/^\d+-/, ''))}</b> <button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b">${esc(r.teacher)}</span><span class="et ${o.total >= 10 ? 'hi' : ''}" style="margin-left:auto">${o.total}점</span></div>
-        ${o.ev.length ? `<div class="echips">${o.ev.map(e => `<span class="ech t-${tone(e.reason)}">${esc(e.reason.replace('(7회)', ''))} ${md(e.day)}${e.pts > 1 ? ` <b>${e.pts}점</b>` : ''}</span>`).join('')}</div>` : '<div class="meta2">이번 달 점수 없음</div>'}</div>`).join('')}</div>`;
+      $('edBody').innerHTML = `<div class="mlist">${rows.map(({ r, o }) => `<div class="ex-card ${o.total >= 10 ? 'lv-out' : ''}" data-eid="${esc(r.id)}"><div class="ex-h"><b class="num">${esc(r.seat.replace(/^\d+-/, ''))}</b> <button type="button" class="name-btn" data-eopen="${esc(r.id)}">${esc(r.name)}</button><span class="tch-b">${esc(r.teacher)}</span><span class="et ${o.total >= 10 ? 'hi' : ''}" style="margin-left:auto">${o.total}점${o.cTotal ? `<small class="meta2"> (이번 달 ${o.mTotal} · 누적 ${o.cTotal})</small>` : ''}</span></div>
+        ${o.ev.length ? `<div class="echips">${o.mon.concat(o.cumEv).map(e => `<span class="ech t-${e.cum ? 'cu' : tone(e.reason)}">${e.cum ? '누적 ' : ''}${esc(e.reason.replace('(7회)', ''))} ${mdY(e.day)}${e.pts > 1 ? ` <b>${e.pts}점</b>` : ''}</span>`).join('')}</div>` : '<div class="meta2">점수 없음</div>'}</div>`).join('')}</div>`;
     }
   }
   function openEduDetail(id) {
     const r = S.rows.find(x => x.id === id); if (!r) return;
-    const o = edCompute()[id] || { ev: [], voided: [], total: 0 };
+    const o = edCompute()[id] || { ev: [], mon: [], cumEv: [], voided: [], total: 0, mTotal: 0, cTotal: 0 };
     const d = $('smsDlg');
-    const line = (e, voided) => `<div class="arow2" style="${voided ? 'opacity:.55' : ''}"><span class="num" style="width:56px;font-weight:700">${md(e.day)}</span>
+    const line = (e, voided) => `<div class="arow2" style="${voided ? 'opacity:.55' : ''}"><span class="num" style="width:64px;font-weight:700">${mdY(e.day)}</span>
       <div class="who2"><b style="${voided ? 'text-decoration:line-through' : ''}">${esc(e.reason)}</b> <span class="meta2">${e.pts}점 · ${esc(e.src)}</span></div>
       <button type="button" class="btn-line" data-evd="${esc(e.day)}" data-evr="${esc(e.reason)}" data-evon="${voided ? '0' : '1'}">${voided ? '제외 취소' : '제외'}</button></div>`;
     d.innerHTML = `<div class="sheet-box" style="max-width:560px"><div class="grab"></div>
-      <div class="sh-head"><div><div class="t1">${esc(r.seat)} · ${esc(r.teacher)} · ${E_MONTH()}</div><div class="t2">${esc(r.name)} ${o.total}점</div></div></div>
-      <div style="max-height:55vh;overflow:auto">${o.ev.length ? o.ev.map(e => line(e, false)).join('') : '<p class="sms-note">이번 달 점수가 없어요.</p>'}
+      <div class="sh-head"><div><div class="t1">${esc(r.seat)} · ${esc(r.teacher)} · ${E_MONTH()}</div><div class="t2">${esc(r.name)} ${o.total}점</div><div class="t1">이번 달 ${o.mTotal}점 · 누적 ${o.cTotal}점</div></div></div>
+      <div style="max-height:55vh;overflow:auto"><div class="sh-cap">이번 달 (매월 1일 초기화)</div>${o.mon.length ? o.mon.map(e => line(e, false)).join('') : '<p class="sms-note">이번 달 점수가 없어요.</p>'}
+      <div class="sh-cap" style="margin-top:10px">누적 (7점 이상 항목, 초기화 없음)</div>${o.cumEv.length ? o.cumEv.map(e => line(e, false)).join('') : '<p class="sms-note">누적 점수가 없어요.</p>'}
       ${o.voided.length ? `<div class="sh-cap" style="margin-top:10px">제외한 점수</div>${o.voided.map(e => line(e, true)).join('')}` : ''}</div>
       <p class="sms-note" style="margin:0">잘못 들어간 점수는 <b>제외</b>를 누르면 리포트에서만 빠져요. 원래 기록은 그대로 남아요.</p>
       <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div></div>`;
@@ -2297,8 +2304,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   };
   $('edCsv').onclick = () => {
     const rows = edRows(); const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const head = ['구분', '좌석', '담임', '이름', '학번', ...Array.from({ length: 20 }, (_, i) => `${i + 1}점`), '합계', '요약'];
-    const body = rows.map(({ r, o }) => [r.status || '재원중', r.seat, r.teacher, r.name, r.id, ...Array.from({ length: 20 }, (_, i) => o.slots[i] || ''), o.total, o.summary].map(q).join(','));
+    const head = ['구분', '좌석', '담임', '이름', '학번', ...Array.from({ length: 20 }, (_, i) => `${i + 1}점`), '이번 달', '누적', '합계', '누적 내역', '요약'];
+    const body = rows.map(({ r, o }) => [r.status || '재원중', r.seat, r.teacher, r.name, r.id, ...Array.from({ length: 20 }, (_, i) => o.slots[i] || ''), o.mTotal, o.cTotal, o.total, o.cslots.join(', '), o.summary].map(q).join(','));
     const url = URL.createObjectURL(new Blob(['﻿' + [head.map(q).join(','), ...body].join('\r\n')], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `${edTitle()}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
@@ -2308,8 +2315,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       @page{size:A4 landscape;margin:8mm} body{font-family:'Malgun Gothic',sans-serif;font-size:9px;margin:0}
       h1{font-size:15px;margin:0 0 6px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #999;padding:2px 3px;text-align:center;white-space:nowrap}
       th{background:#eee} td.s{font-size:8px} td.t{font-weight:bold} tr{page-break-inside:avoid}</style></head><body>
-      <h1>${esc(edTitle())}</h1><table><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>합계</th></tr></thead><tbody>
-      ${rows.map(({ r, o }) => `<tr><td>${esc(r.status || '재원중')}</td><td>${esc(r.seat)}</td><td>${esc(r.teacher)}</td><td>${esc(r.name)}</td><td>${esc(r.id)}</td>${Array.from({ length: 20 }, (_, i) => `<td class="s">${esc(o.slots[i] || '')}</td>`).join('')}<td class="t">${o.total}</td></tr>`).join('')}
+      <h1>${esc(edTitle())}</h1><table><thead><tr><th>구분</th><th>좌석</th><th>담임</th><th>이름</th><th>학번</th>${Array.from({ length: 20 }, (_, i) => `<th>${i + 1}점</th>`).join('')}<th>이번 달</th><th>누적</th><th>합계</th><th>누적 내역</th></tr></thead><tbody>
+      ${rows.map(({ r, o }) => `<tr><td>${esc(r.status || '재원중')}</td><td>${esc(r.seat)}</td><td>${esc(r.teacher)}</td><td>${esc(r.name)}</td><td>${esc(r.id)}</td>${Array.from({ length: 20 }, (_, i) => `<td class="s">${esc(o.slots[i] || '')}</td>`).join('')}<td>${o.mTotal || ''}</td><td>${o.cTotal || ''}</td><td class="t">${o.total}</td><td class="s" style="white-space:normal;text-align:left">${esc(o.cslots.join(', '))}</td></tr>`).join('')}
       </tbody></table><script>window.onload=()=>{window.print();}<\/script></body></html>`);
     w.document.close();
   };
