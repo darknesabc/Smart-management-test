@@ -327,7 +327,14 @@ table.rep tr.tot td.adj{background:#FEF3C7}
 .xbs{display:flex;gap:6px;flex-wrap:wrap}
 .tch-b.ext{background:#FEF3C7;color:#92400E}
 .slc.on{background:var(--schSoft);color:var(--schInk);border:1.5px solid var(--sch)}
-.slc{position:relative}
+.slc{position:relative;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.stp{display:inline-flex;align-items:center;border:1.5px solid #D5D9E0;border-radius:12px;overflow:hidden;background:#fff;height:46px}
+.stp.on{border-color:var(--sch);background:var(--schSoft)}
+.stp button{width:46px;height:100%;border:0;background:transparent;font-size:22px;font-weight:700;color:var(--ink)}
+.stp button:disabled{color:#C3C8D0}
+.stp button[data-d="1"]{background:var(--sch);color:#fff} .stp button[data-d="1"]:disabled{background:#E9ECF1;color:#C3C8D0}
+.stp span{min-width:52px;text-align:center;font-weight:800;font-size:15px;color:var(--schInk);font-variant-numeric:tabular-nums}
+@media (max-width:899px){ .sl-mode{display:none !important} }
 .slb{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;background:var(--schSoft);color:var(--schInk)}
 .slb.warn{background:#FEF3C7;color:#92400E} .slb.out{background:var(--badSoft,#FDECEA);color:var(--late)}
 tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-child{box-shadow:inset 4px 0 0 var(--late)}
@@ -567,13 +574,13 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     </div>
     <div class="toolbar">
       <div class="halls" id="slHalls" role="group" aria-label="관 선택"></div>
-      <div class="seg mode" role="group" aria-label="누르면"><span>누르면</span><button type="button" id="slPlus" class="ok">+1</button><button type="button" id="slMinus" class="late">−1</button></div>
+      <div class="seg mode sl-mode" role="group" aria-label="누르면"><span>누르면</span><button type="button" id="slPlus" class="ok">+1</button><button type="button" id="slMinus" class="late">−1</button></div>
       <label class="chk"><input type="checkbox" id="slOnly"><span id="slOnlyTxt">취침 기록 있는 학생만</span></label>
       <label class="ctl search"><span class="sr">검색</span><input type="search" id="slQ" placeholder="이름 · 좌석 · 학번"></label>
       <button type="button" class="btn-line" id="slShare" style="margin-left:auto">명단 복사 · 이미지 (담임별)</button>
     </div>
     <div id="slBody"></div>
-    <div class="legend"><span>칸을 누르면 그 교시 취침 +1 · 하루 3회 이상 경고 · 7회 이상 강제하원 · 3회마다 교육점수 1점</span><span>회색 점 = 구글 시트에서 넣은 기록 (여기서 줄일 수 없어요)</span></div>
+    <div class="legend"><span>칸을 누르면 +1 · 길게 누르거나 오른쪽 클릭하면 −1 · 교시별 보기에서는 − / + 버튼 · 하루 3회 이상 경고 · 7회 이상 강제하원 · 3회마다 교육점수 1점</span><span>회색 점 = 구글 시트에서 넣은 기록 (여기서 줄일 수 없어요)</span></div>
   </main>
 
   <main id="viewStat" class="hidden">
@@ -2028,6 +2035,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const halls = [...new Set(S.rows.map(r => r.hall))].sort((a, b) => a - b);
     $('slHalls').innerHTML = [`<button type="button" data-sh2="all" class="${L.hall === 'all' ? 'on' : ''}">전체</button>`].concat(halls.map(h => `<button type="button" data-sh2="${h}" class="${String(L.hall) === String(h) ? 'on' : ''}">${h}관</button>`)).join('');
     $('slPlus').classList.toggle('on', L.mode === 1); $('slMinus').classList.toggle('on', L.mode === -1);
+    document.querySelector('.sl-mode').classList.toggle('hidden', L.range !== 'day');      // 교시별은 − / + 버튼이 있어서 필요 없음
     $('slOnlyTxt').textContent = L.range === 'day' ? '취침 기록 있는 학생만' : `${L.period + 1}교시 취침만`;
     if (!S.data || !L.data) { $('slBody').innerHTML = '<div class="empty-note">불러오는 중…</div>'; $('slKpis').innerHTML = ''; return; }
     const live = S.rows.filter(r => !r.empty);
@@ -2050,6 +2058,10 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       const label = fut ? '–' : v.n ? `${v.n}회` : '·';
       return `<button type="button" class="${cls}" ${o.style ? `style="${o.style}"` : ''} data-sid="${esc(r.id)}" data-sp2="${i}" ${fut ? 'disabled' : ''} aria-label="${esc(r.seat)} ${esc(r.name)} ${i + 1}교시 취침 ${v.n}회${v.sheet ? ` (시트 ${v.sheet}회 포함)` : ''}">${o.num ? `<b style="display:block;font-size:12px">${i + 1}</b>` : ''}${label}${v.sheet ? '<span class="memo-dot" style="background:#9AA1AD" aria-hidden="true"></span>' : ''}</button>`;
     };
+    const stepper = (r, i) => { const v = slGet(r.id, i), fut = i > open;
+      return `<div class="stp ${v.n ? 'on' : ''}"><button type="button" data-sid="${esc(r.id)}" data-sp2="${i}" data-d="-1" ${fut || v.app <= 0 ? 'disabled' : ''} aria-label="${esc(r.name)} ${i + 1}교시 취침 빼기">−</button>
+        <span>${fut ? '–' : v.n ? v.n + '회' : '0'}${v.sheet ? '<span class="memo-dot" style="background:#9AA1AD" aria-hidden="true"></span>' : ''}</span>
+        <button type="button" data-sid="${esc(r.id)}" data-sp2="${i}" data-d="1" ${fut ? 'disabled' : ''} aria-label="${esc(r.name)} ${i + 1}교시 취침 더하기">+</button></div>`; };
     const badge = (n) => n >= 7 ? `<span class="slb out">${n}회 · 강제하원</span>` : n >= 3 ? `<span class="slb warn">${n}회 · 경고</span>` : n ? `<span class="slb">${n}회</span>` : '';
     let html;
     if (!rows.length) html = `<div class="empty-note">${live.length ? '조건에 맞는 학생이 없어요.' : '이 층에는 아직 학생이 없어요.'}</div>`;
@@ -2061,7 +2073,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
         const g = L.hall === 'all' && r.hall !== last ? `<tr class="grp"><td colspan="${day ? 13 : 6}">${S.floor}-${r.hall}관</td></tr>` : ''; last = r.hall;
         const n = slTotal(r.id);
         return g + `<tr class="${slLevel(n) ? 'lv-' + slLevel(n) : ''}"><td class="num"><b>${esc(r.seat)}</b></td><td><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button>${r.status === '퇴원예정' ? ' <span class="st out">퇴원예정</span>' : ''}</td>
-          <td class="num">${esc(r.id)}</td><td>${esc(r.teacher)}</td>${day ? PT.map((p, i) => `<td class="c ${i === cur ? 'cur' : ''}">${cell(r, i)}</td>`).join('') : `<td class="c cur">${cell(r, P, { wide: true })}</td>`}<td>${badge(n)}</td></tr>`;
+          <td class="num">${esc(r.id)}</td><td>${esc(r.teacher)}</td>${day ? PT.map((p, i) => `<td class="c ${i === cur ? 'cur' : ''}">${cell(r, i)}</td>`).join('') : `<td class="c cur">${stepper(r, P)}</td>`}<td>${badge(n)}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     } else {
       const groups = []; rows.forEach(r => { const k = `${r.hall}-${r.row}`; let g = groups[groups.length - 1]; if (!g || g.k !== k) { g = { k, hall: r.hall, row: r.row, rows: [] }; groups.push(g); } g.rows.push(r); });
@@ -2069,7 +2081,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
         return `<div><div class="mgrp-h"><span>${S.floor}-${g.hall}관 ${esc(g.row)}열</span><span style="font-weight:500">${ns ? '취침 ' + ns + '명' : ''}</span></div><div class="mgrp-b">${g.rows.map(r => { const n = slTotal(r.id);
           return `<div class="mrow ${slLevel(n) ? 'lv-' + slLevel(n) : ''}"><div class="mtop"><span class="mseat">${esc(r.seat.replace(/^\d+-/, ''))}</span>
             <div class="minfo"><span class="mname"><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button> ${badge(n)}</span><span class="mmeta num">${esc(r.id)} · ${esc(r.teacher)}</span></div>
-            ${day ? '' : cell(r, P, { style: 'width:78px;min-height:46px;font-size:14px' })}</div>
+            ${day ? '' : stepper(r, P)}</div>
             ${day ? `<div class="mcells">${PT.map((p, i) => cell(r, i, { num: true })).join('')}</div>` : ''}</div>`; }).join('')}</div></div>`; }).join('')}</div>`;
     }
     if (document.activeElement && document.activeElement.id === 'slQ') { $('slBody').innerHTML = html; return; }
@@ -2089,8 +2101,19 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     } catch (e) { D[id][k] = [v.app, v.sheet]; toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요. 다시 눌러 주세요.' : (e.message || '저장하지 못했어요.'), { err: true }); }
     S.sl.busy--; renderSleep();
   }
+  // 하루 전체 칸: 짧게 누르면 +1 (PC는 위 버튼 모드) · 길게 누르거나 오른쪽 클릭하면 −1
+  let slPressT = null, slPressed = false;
+  $('slBody').addEventListener('pointerdown', (e) => {
+    const c = e.target.closest('button.slc'); if (!c || c.disabled) return; slPressed = false; clearTimeout(slPressT);
+    slPressT = setTimeout(() => { slPressed = true; try { navigator.vibrate && navigator.vibrate(30); } catch (x) {} slApply(c.dataset.sid, +c.dataset.sp2, -1); }, 550);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(n => $('slBody').addEventListener(n, () => clearTimeout(slPressT), true));
+  window.addEventListener('scroll', () => clearTimeout(slPressT), { passive: true });
+  $('slBody').addEventListener('contextmenu', (e) => { const c = e.target.closest('button.slc'); if (!c) return; e.preventDefault(); if (slPressed) return; if (!c.disabled) slApply(c.dataset.sid, +c.dataset.sp2, -1); slPressed = true; });
   $('slBody').addEventListener('click', (e) => {
-    const c = e.target.closest('button.slc'); if (c && !c.disabled) return slApply(c.dataset.sid, +c.dataset.sp2, S.sl.mode);
+    const sb = e.target.closest('.stp button[data-d]'); if (sb && !sb.disabled) return slApply(sb.dataset.sid, +sb.dataset.sp2, +sb.dataset.d);
+    const c = e.target.closest('button.slc');
+    if (c) { if (slPressed) { slPressed = false; return; } if (!c.disabled) slApply(c.dataset.sid, +c.dataset.sp2, wideMQ.matches ? S.sl.mode : 1); return; }
     const o = e.target.closest('[data-open]'); if (o) openDetail(o.dataset.open, S.sl.range === 'day' ? 0 : S.sl.period);
   });
   $('slKpis').onclick = (e) => { const b = e.target.closest('[data-slf]'); if (!b || b.disabled) return; S.sl.f = S.sl.f === b.dataset.slf ? '' : b.dataset.slf; renderSleep(); };
