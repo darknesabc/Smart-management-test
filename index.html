@@ -119,6 +119,12 @@ table.sheet tr.grp td{background:#FAFBFC;color:var(--sub);font-weight:700;font-s
 .mlist{display:flex;flex-direction:column;gap:12px}
 .mgrp-h{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);font-weight:700;padding:6px 2px;position:sticky;top:var(--hh,0px);z-index:5;background:var(--bg)}
 /* PC · 태블릿 가로: 위쪽(메뉴 · 숫자 · 필터)은 그대로, 아래 목록만 스크롤 */
+#toTop{position:fixed;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;display:none;align-items:center;gap:8px;max-width:calc(100vw - 28px);
+  border:0;border-radius:999px;padding:10px 14px;background:var(--ink);color:#fff;box-shadow:0 6px 18px rgba(15,18,24,.25);font-size:13px;font-weight:600}
+#toTop.show{display:inline-flex}
+#toTop span{opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw}
+#toTop b{white-space:nowrap}
+@media (min-width:900px){ #toTop{display:none !important} }
 @media (min-width:900px){
   .fit{overflow:auto;overscroll-behavior:contain;border-radius:16px}
   .fit > *{flex-shrink:0}            /* 목록 칸이 눌려 잘리지 않고 넘쳐서 스크롤되게 */
@@ -504,6 +510,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     </div>
   </main>
 <div id="smsDlg" class="dim hidden" role="dialog" aria-modal="true"></div>
+<button type="button" id="toTop" aria-label="맨 위로 (관 · 교시 바꾸기)"><span></span><b aria-hidden="true">▲ 맨 위로</b></button>
 
   <main id="viewKio" class="hidden">
     <div class="toolbar">
@@ -583,17 +590,59 @@ table.rep tr.tot td.adj{background:#FEF3C7}
   //  ① 다시 그려도 보던 위치 유지  ② PC에선 목록 칸이 화면 아래 끝까지만 → 위쪽은 고정되고 목록만 스크롤
   const SCROLLERS = '.tbox, .fit';
   function scrollKey(el) { const host = el.closest('[id]'); return (host ? host.id : '') + ':' + [...(host || document).querySelectorAll(SCROLLERS)].indexOf(el); }
+  //  관 · 교시 · 필터 · 검색 · 탭이 바뀌면 → 목록 맨 위로 / 같은 화면에서 값만 바뀌면 → 보던 위치 그대로
+  function viewKey() {
+    const v = (id) => { const el = document.getElementById(id); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
+    const X = S.ex || {};
+    return [S.tab, S.floor, S.day, S.hall, S.range, S.range === 'day' ? '' : S.period, S.onlyAbsent, S.q, v('fTeacher'), v('fStatus'),
+      S.absMode, S.absP, S.absF, v('absT'), v('absAllDay'), S.smsR, S.smsF, v('smsT'), v('smsOut'), v('kioKind'), v('kioQ'), S.repP,
+      X.id, X.room, X.hall, X.view, X.sub, X.mode, X.onlyMiss, X.q].join('|');
+  }
+  let scrollDepth = 0, lastViewKey = '';
   function keepScroll(fn) {
     return function (...args) {
-      const y = window.scrollY, saved = {};
-      document.querySelectorAll(SCROLLERS).forEach(el => { if (el.scrollTop || el.scrollLeft) saved[scrollKey(el)] = [el.scrollTop, el.scrollLeft]; });
-      const out = fn.apply(this, args);
-      fitScrollers();                      // 높이를 먼저 맞추고 나서 위치를 되돌려야 맨 위로 튀지 않음
-      document.querySelectorAll(SCROLLERS).forEach(el => { const v = saved[scrollKey(el)]; if (v) { el.scrollTop = v[0]; el.scrollLeft = v[1]; } });
-      if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
-      return out;
+      if (scrollDepth) return fn.apply(this, args);          // 안쪽 그리기는 바깥에서 한 번만 처리
+      scrollDepth++;
+      try {
+        const y = window.scrollY, saved = {};
+        const key = viewKey(), changed = key !== lastViewKey; lastViewKey = key;
+        document.querySelectorAll(SCROLLERS).forEach(el => { if (el.scrollTop || el.scrollLeft) saved[scrollKey(el)] = [el.scrollTop, el.scrollLeft]; });
+        const out = fn.apply(this, args);
+        fitScrollers();                    // 높이를 먼저 맞추고 나서 위치를 되돌려야 맨 위로 튀지 않음
+        if (!changed) {
+          document.querySelectorAll(SCROLLERS).forEach(el => { const v = saved[scrollKey(el)]; if (v) { el.scrollTop = v[0]; el.scrollLeft = v[1]; } });
+          if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+        } else {
+          document.querySelectorAll(SCROLLERS).forEach(el => { el.scrollTop = 0; });
+          const main = [...document.querySelectorAll('main')].find(m => !m.classList.contains('hidden'));
+          const list = main && main.querySelector('#sheetArea, #absList, #smsBody, #kioBox, #repBox, #exList, #exBody');
+          if (list && !wideMQ.matches) {     // 휴대폰: 목록 중간에 있었다면 목록 첫 줄로
+            const hh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hh')) || 0;
+            const top = list.getBoundingClientRect().top + window.scrollY - hh - 8;
+            window.scrollTo(0, Math.min(y, Math.max(0, top)));
+          }
+        }
+        updateToTop();
+        return out;
+      } finally { scrollDepth--; }
     };
   }
+  // 휴대폰: 스크롤을 내리면 "지금 보는 조건 ▲ 맨 위로" 버튼
+  function viewLabel() {
+    const X = S.ex || {};
+    if (S.tab === 'att') return `${S.hall === 'all' ? '전체 관' : S.hall + '관'} · ${S.range === 'day' ? '하루 전체' : (S.period + 1) + '교시'}${S.onlyAbsent ? ' · 결석만' : ''}`;
+    if (S.tab === 'abs') return S.absMode === 'sms' ? `${S.smsR || ''}교시 문자 명단` : `${(S.absP ?? 0) + 1}교시 미등원`;
+    if (S.tab === 'exam') return `${X.room || '전체 고사장'}${X.hall && X.hall !== 'all' ? ' · ' + X.hall : ''} · ${X.view === 'sub' && X.data ? X.data.exam.subjects[X.sub] : '전 과목'}`;
+    if (S.tab === 'rep') return `${(S.repP ?? 1) + 1}교시 인원보고`;
+    return '';
+  }
+  function updateToTop() {
+    const b = document.getElementById('toTop'); if (!b) return;
+    const show = !wideMQ.matches && window.scrollY > 320 && !document.getElementById('app')?.classList.contains('hidden');
+    b.classList.toggle('show', show);
+    if (show) { const l = viewLabel(); b.querySelector('span').textContent = l; b.querySelector('span').style.display = l ? '' : 'none'; }
+  }
+  window.addEventListener('scroll', () => { if (!updateToTop.t) updateToTop.t = requestAnimationFrame(() => { updateToTop.t = 0; updateToTop(); }); }, { passive: true });
   function fitScrollers() {
     const hdr = document.querySelector('header.top'); if (hdr) document.documentElement.style.setProperty('--hh', hdr.offsetHeight + 'px');
     if (!wideMQ.matches) {                  // 휴대폰 · 태블릿 세로: 페이지 전체 스크롤 (열 제목은 상단에 붙음)
@@ -2595,6 +2644,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     try { const { error } = await db.rpc('work_kiosk_delete', { p_client_id: x.client_id }); if (error) throw error; await loadKio(); }
     catch (err) { b.disabled = false; alert(isNetErr(err) ? '인터넷 연결을 확인해 주세요.' : (err.message || '지우지 못했어요.')); }
   });
+  $('toTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   render = keepScroll(render); renderAbs = keepScroll(renderAbs); renderSms = keepScroll(renderSms);
   renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam);
   wideMQ.addEventListener('change', render);
