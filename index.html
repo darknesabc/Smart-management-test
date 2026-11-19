@@ -312,6 +312,12 @@ table.rep tr.tot td.adj{background:#FEF3C7}
 .arow2:first-of-type{border-top:0}
 .arow2 .who2{min-width:180px;flex:1}
 .arow2 .who2 b{font-size:15px}
+.tch-b{display:inline-block;margin:0 6px 0 8px;padding:2px 8px;border-radius:999px;background:#EEF2FF;color:#3730A3;font-size:13px;font-weight:700;vertical-align:1px}
+.sh-list{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto}
+.sh-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line2)}
+.sh-row b{font-size:15px} .sh-row span{font-size:13px;color:var(--sub);min-width:40px;text-align:right}
+.sh-row.all{background:var(--bg);border-radius:10px;padding:8px 10px;border:0}
+.sh-cap{font-size:12px;font-weight:700;color:var(--sub);margin:8px 2px 0}
 .arow2 .meta2{font-size:12px;color:var(--sub)}
 .mini8{display:flex;gap:3px}
 .mini8 i{width:18px;height:18px;border-radius:5px;font-style:normal;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:1px solid #D5D9E0;color:var(--sub);background:#fff}
@@ -470,7 +476,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       <div class="pills" id="absPills" role="group" aria-label="교시 선택"></div>
       <label class="ctl">담임 <select id="absT"><option value="">전체</option></select></label>
       <label class="chk"><input type="checkbox" id="absAllDay"> 오늘 한 번도 안 온 학생만</label>
-      <button type="button" class="btn-line" id="absCopy" style="margin-left:auto">사유 없음 명단 복사</button>
+      <button type="button" class="btn-line" id="absCopy" style="margin-left:auto">명단 복사 · 이미지 (담임별)</button>
     </div>
     <div id="absList" class="fit"></div>
     </div>
@@ -960,8 +966,8 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     if (P > open) { $('absList').innerHTML = `<div class="empty-note">${P + 1}교시는 아직 시작 전이에요.</div>`; return; }
     const row = ({ r, rs }) => `<div class="arow2">
         <span class="num" style="width:64px;font-weight:700">${esc(r.seat)}</span>
-        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button></b> ${r.status === '퇴원예정' ? '<span class="st out">퇴원예정</span>' : ''}
-          <div class="meta2 num">${esc(r.id)} · ${esc(r.teacher)} · ${esc(r.gender)} · ${esc(r.grade)}</div>
+        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(r.id)}">${esc(r.name)}</button></b><span class="tch-b">${esc(r.teacher)}</span>${r.status === '퇴원예정' ? '<span class="st out">퇴원예정</span>' : ''}
+          <div class="meta2 num">${esc(r.id)} · ${esc(r.gender)} · ${esc(r.grade)}</div>
           ${rs.length ? `<div>${tagsHtml(rs)}</div>` : ''}</div>
         <div class="mini8" aria-label="오늘 교시별">${PT.map((p, i) => { const c = codeOf(r, i); const fut = i > open; return `<i class="${fut ? 'fut' : 's' + c} ${i === P ? 'cur' : ''}" title="${i + 1}교시 ${fut ? '' : c === '1' ? '출석' : c === '2' ? '지각' : '결석'}">${i + 1}</i>`; }).join('')}</div>
         <button type="button" class="btn-line" data-absok="${esc(r.id)}" aria-label="${esc(r.name)} ${P + 1}교시 출석으로">출석으로</button>
@@ -1047,8 +1053,8 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     const warn = c.R === 1 && c.open < 1 ? '<p class="sms-note warn">아직 2교시 전이라 "2교시 출석" 제외가 반영되지 않았어요. 2교시 출석 체크 뒤에 명단을 뽑아 주세요.</p>' : '';
     const row = (x, skip) => `<div class="arow2">
         <span class="num" style="width:64px;font-weight:700">${esc(x.r.seat)}</span>
-        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(x.r.id)}">${esc(x.r.name)}</button></b> ${x.r.status === '퇴원예정' ? '<span class="st out">퇴원예정</span>' : ''}
-          <div class="meta2 num">${esc(x.r.id)} · ${esc(x.r.teacher)}</div>
+        <div class="who2"><b><button type="button" class="name-btn" data-open="${esc(x.r.id)}">${esc(x.r.name)}</button></b><span class="tch-b">${esc(x.r.teacher)}</span>${x.r.status === '퇴원예정' ? '<span class="st out">퇴원예정</span>' : ''}
+          <div class="meta2 num">${esc(x.r.id)}</div>
           ${(x.why.length || x.before.length || x.forced) ? `<div>${x.forced ? `<span class="rtag add">담임 추가 (${esc(x.by || '')})</span>` : ''}${tagsHtml(x.why)}${x.before.map(n => `<span class="rtag sent">${n}교시 문자 보냄</span>`).join('')}</div>` : ''}</div>
         <span class="ph num ${phoneOf(x.r) ? '' : 'no'}">${phoneOf(x.r) ? esc(phoneOf(x.r)) : '연락처 없음'}</span>
         ${skip ? `<span style="display:flex;gap:6px">${x.tch ? `<button type="button" class="btn-line" data-smsx="${esc(x.r.id)}">제외 바꾸기</button>` : ''}<button type="button" class="btn-line" data-smsadd="${esc(x.r.id)}" style="color:var(--late)">발송에 추가</button></span>`
@@ -1068,7 +1074,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       <div class="sms-acts">
         <button type="button" class="btn-dark" data-sa="text">${c.R}교시 문구 복사</button>
         <button type="button" class="btn-line" data-sa="phones">연락처만 복사</button>
-        <button type="button" class="btn-line" data-sa="list">명단 복사</button>
+        <button type="button" class="btn-line" data-sa="list">명단 복사 · 이미지 (담임별)</button>
         <button type="button" class="btn-line" data-sa="csv">엑셀 저장</button>
         <button type="button" class="btn-dark" data-sa="sent" style="margin-left:auto" ${c.targets.length ? '' : 'disabled'}>발송 완료로 표시</button>
       </div>
@@ -1120,7 +1126,7 @@ table.rep tr.tot td.adj{background:#FEF3C7}
       const ph = T.map(x => phoneOf(x.r)).filter(Boolean);
       return copyText(ph.join('\n'), `연락처 ${ph.length}개를 복사했어요.${T.length > ph.length ? ` (연락처 없는 ${T.length - ph.length}명 제외)` : ''}`);
     }
-    if (a.dataset.sa === 'list') return copyText(`${dayLabel(S.day)} ${c.R}교시 미등원 문자 ${T.length}명\n` + T.map(x => `${x.r.seat} ${x.r.name} (${x.r.teacher}) ${phoneOf(x.r) || '연락처 없음'}`).join('\n'), '명단을 복사했어요.');
+    if (a.dataset.sa === 'list') return openShare(`${c.R}교시 미등원 문자`, T.map(x => ({ seat: x.r.seat, name: x.r.name, teacher: x.r.teacher, phone: phoneOf(x.r), note: x.forced ? '담임 추가' : '' })), { phoneOpt: true });
     if (a.dataset.sa === 'csv') {
       const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
       const csv = '﻿' + ['좌석,이름,학번,담임,학부모 연락처'].concat(T.map(x => [x.r.seat, x.r.name, x.r.id, x.r.teacher, phoneOf(x.r)].map(q).join(','))).join('\r\n');
@@ -1465,11 +1471,87 @@ table.rep tr.tot td.adj{background:#FEF3C7}
     const b = ev.target.closest('[data-absok]'); if (!b) return;
     const r = S.rows.find(x => x.id === b.dataset.absok); if (r) setAtt(r, absPeriod(), '1');
   });
-  $('absCopy').onclick = async () => {
-    const { P, g } = absGroups();
-    const text = `${dayLabel(S.day)} ${P + 1}교시 사유 없는 결석 ${g.none.length}명\n` + g.none.map(({ r }) => `${r.seat} ${r.name} (${r.teacher})`).join('\n');
-    try { await navigator.clipboard.writeText(text); toast('명단을 복사했어요.'); }
-    catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('명단을 복사했어요.'); } catch (x) { toast('복사하지 못했어요.', { err: true }); } ta.remove(); }
+  // ---------- 명단 공유: 전체 / 담임별 · 글자 복사 / 이미지 복사 (카톡에 붙여넣기) ----------
+  //  items: [{ seat, name, teacher, note, phone }]
+  function listCanvas(title, sub, items, opt) {
+    const showT = opt.teacherCol, showP = opt.phone, showN = items.some(x => x.note);
+    const cols = [['좌석', 84], ['이름', 92]].concat(showT ? [['담임', 82]] : []).concat(showP ? [['학부모 연락처', 138]] : []).concat(showN ? [['비고', 220]] : []);
+    const M = 16, rowH = 30, headH = 30, titleH = 56;
+    const W = cols.reduce((a, c) => a + c[1], 0) + M * 2;
+    const H = M + titleH + headH + rowH * Math.max(1, items.length) + M;
+    const s = 2, cv = document.createElement('canvas'); cv.width = W * s; cv.height = H * s;
+    const g = cv.getContext('2d'); g.scale(s, s);
+    const F = '"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif';
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.textBaseline = 'middle';
+    g.fillStyle = '#15181D'; g.font = `800 17px ${F}`; g.fillText(title, M, M + 16);
+    g.fillStyle = '#6B7280'; g.font = `500 12px ${F}`; g.fillText(sub, M, M + 40);
+    let y = M + titleH; const xs = []; cols.reduce((x, c) => { xs.push(x); return x + c[1]; }, M);
+    const clip = (t, w) => { t = String(t ?? ''); while (t && g.measureText(t).width > w - 14) t = t.slice(0, -1); return t; };
+    g.fillStyle = '#F3F4F6'; g.fillRect(M, y, W - M * 2, headH);
+    g.fillStyle = '#4B5361'; g.font = `700 12px ${F}`; cols.forEach((c, i) => g.fillText(c[0], xs[i] + 8, y + headH / 2));
+    y += headH;
+    if (!items.length) { g.fillStyle = '#9AA1AD'; g.font = `500 13px ${F}`; g.fillText('해당 학생이 없어요', M + 8, y + rowH / 2); }
+    items.forEach((x, ri) => {
+      if (ri % 2) { g.fillStyle = '#FAFAFB'; g.fillRect(M, y, W - M * 2, rowH); }
+      const vals = [x.seat, x.name].concat(showT ? [x.teacher] : []).concat(showP ? [x.phone || '연락처 없음'] : []).concat(showN ? [x.note || ''] : []);
+      vals.forEach((v, i) => {
+        const isName = i === 1, isNote = showN && i === vals.length - 1, noPh = showP && cols[i][0] === '학부모 연락처' && !x.phone;
+        g.fillStyle = noPh ? '#B42318' : isNote ? '#6B7280' : '#15181D';
+        g.font = `${isName ? 800 : i === 0 ? 700 : 500} ${isNote ? 12 : 13}px ${F}`;
+        g.fillText(clip(v, cols[i][1]), xs[i] + 8, y + rowH / 2);
+      });
+      g.strokeStyle = '#EEF0F3'; g.beginPath(); g.moveTo(M, y + rowH + .5); g.lineTo(W - M, y + rowH + .5); g.stroke();
+      y += rowH;
+    });
+    return cv;
+  }
+  async function copyCanvas(cv, name) {
+    const blobP = new Promise(res => cv.toBlob(res, 'image/png'));
+    try {
+      if (!window.ClipboardItem || !navigator.clipboard?.write) throw new Error('no');
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobP })]);
+      toast('이미지를 복사했어요. 카톡 대화창에 붙여넣기 하세요.');
+    } catch (e) {
+      const file = new File([await blobP], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); } catch (x) {} return; }
+      const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
+      toast('이 브라우저는 이미지 복사가 안 돼서 파일로 저장했어요.');
+    }
+  }
+  function openShare(title, items, opt = {}) {
+    const byT = {}; items.forEach(x => { (byT[x.teacher || '(담임 없음)'] ||= []).push(x); });
+    const teachers = Object.keys(byT).sort((a, b) => a.localeCompare(b, 'ko'));
+    const d = $('smsDlg');
+    d.innerHTML = `<div class="sheet-box" style="max-width:560px"><div class="grab"></div>
+      <div class="sh-head"><div><div class="t1">${S.floor}층 · ${esc(dayLabel(S.day))}</div><div class="t2">${esc(title)} ${items.length}명</div></div></div>
+      ${opt.phoneOpt ? '<label class="chk" style="align-self:flex-start"><input type="checkbox" id="shPhone"> 학부모 연락처 넣기</label>' : ''}
+      <div class="sh-list">
+        <div class="sh-row all"><b>전체</b><span>${items.length}명</span><button type="button" class="btn-line" data-sh="txt" data-t="">명단 복사</button><button type="button" class="btn-dark" data-sh="img" data-t="">이미지 복사</button></div>
+        ${teachers.length > 1 ? `<div class="sh-cap">담임별</div>${teachers.map(t => `<div class="sh-row"><b>${esc(t)}</b><span>${byT[t].length}명</span><button type="button" class="btn-line" data-sh="txt" data-t="${esc(t)}">명단 복사</button><button type="button" class="btn-line" data-sh="img" data-t="${esc(t)}">이미지 복사</button></div>`).join('')}
+        <div class="sh-row all"><b>담임별로 나눠서</b><span>한 번에</span><button type="button" class="btn-line" data-sh="txtall" style="grid-column:span 2">담임별 명단 한꺼번에 복사</button></div>` : ''}
+      </div>
+      <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div></div>`;
+    d.classList.remove('hidden');
+    const phone = () => !!(opt.phoneOpt && $('shPhone')?.checked);
+    const line = (x, withT) => `${x.seat} ${x.name}${withT ? ` (${x.teacher})` : ''}${phone() ? ` ${x.phone || '연락처 없음'}` : ''}${x.note ? ` - ${x.note}` : ''}`;
+    d.onclick = (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) { d.classList.add('hidden'); d.innerHTML = ''; return; }
+      const b = ev.target.closest('[data-sh]'); if (!b) return;
+      const t = b.dataset.t, list = t ? byT[t] : items, head = `${dayLabel(S.day)} ${S.floor}층 ${title}${t ? ` · ${t}` : ''} ${list.length}명`;
+      if (b.dataset.sh === 'txt') return copyText(head + '\n' + list.map(x => line(x, !t)).join('\n'), `${t || '전체'} 명단을 복사했어요.`);
+      if (b.dataset.sh === 'txtall') return copyText(`${dayLabel(S.day)} ${S.floor}층 ${title} ${items.length}명\n\n` + teachers.map(tt => `[${tt}] ${byT[tt].length}명\n` + byT[tt].map(x => line(x, false)).join('\n')).join('\n\n'), '담임별 명단을 복사했어요.');
+      if (b.dataset.sh === 'img') {
+        const now = new Date(serverNow() + 9 * 3600e3);
+        const stamp = isToday() ? `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')} 기준` : '';
+        const cv = listCanvas(`${S.floor}층 ${title}${t ? ` · ${t}` : ''} ${list.length}명`, `${dayLabel(S.day)} ${stamp}`, list, { teacherCol: !t, phone: phone() });
+        copyCanvas(cv, `${title}_${S.floor}층_${S.day}${t ? '_' + t : ''}.png`);
+      }
+    };
+  }
+  $('absCopy').onclick = () => {
+    const { P, g } = absGroups(); const F = S.absF || 'none';
+    const names = { none: '사유 없는 결석', survey: '결석 · 설문', move: '결석 · 이동', sch: '결석 · 스케줄' };
+    openShare(`${P + 1}교시 ${names[F]}`, g[F].map(({ r, rs }) => ({ seat: r.seat, name: r.name, teacher: r.teacher, note: F === 'none' ? '' : (rs || []).map(x => x.text).join(', ') })));
   };
 
   // ---------- 등원 현황 ----------
