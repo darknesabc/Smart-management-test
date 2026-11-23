@@ -440,7 +440,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 
 <section id="login" class="hidden" aria-label="로그인">
   <form class="login-box" id="loginForm">
-    <h1>러셀 담임 업무</h1>
+    <h1>담임 업무</h1>
     <p>선생님 계정으로 로그인해 주세요.</p>
     <label class="field">아이디<input id="lid" autocomplete="username" required></label>
     <label class="field">비밀번호<input id="lpw" type="password" autocomplete="current-password" required></label>
@@ -2814,6 +2814,25 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     return { start, count: list.length, replaced: last - start + 1, skipped: [...skipped] };
   }
 
+  // 26인원 시트 '수기 입력' 칸과 같은 계산 (AA4:AL4 · AA7:AH7 수식과 동일)
+  //  인원: 명렬표에서 입학예정 · 잔여석을 뺀 학생 · 신규/퇴원/강제: 그날 신규 · 퇴원 (퇴원은 강제 제외, 강제는 따로)
+  const isForcedLeave = (x) => /강제/.test(x.lreason || '');
+  const isNsu = (x) => (x.grade || '') === 'N수', isHigh = (x) => /고/.test(x.grade || '');
+  function count26(D) {
+    const live = D.roster.filter(x => x.status !== '입학예정' && x.status !== '잔여석');
+    const by = (f) => live.filter(f).length, cls = (c) => by(x => x.cls === c);
+    const lv = D.left.filter(x => !isForcedLeave(x)), fc = D.left.filter(isForcedLeave);
+    return {
+      D: cls('전교1등'), E: cls('HS') + cls('HS-1반') + cls('HS-2반'), F: cls('서/의치대'), G: cls('연고대'), H: cls('블루'), I: cls('그린'), J: cls('썸머스쿨'), K: cls('[별관]썸머스쿨'),
+      M: by(x => x.grade === 'N수'), N: by(x => x.grade === '고3'), O: by(x => x.grade === '고2'), P: by(x => x.grade === '고1'),
+      R: by(x => x.gender === '남'), S: by(x => x.gender === '여'),
+      T: D.new.filter(isHigh).length, U: D.new.filter(isNsu).length, V: lv.filter(isHigh).length, W: lv.filter(isNsu).length, X: fc.filter(isHigh).length, Y: fc.filter(isNsu).length };
+  }
+  // 다른 시트 수식의 '26인원'!$B$8:$C$328 같은 범위 끝을 늘림 (새 날짜 줄을 붙였을 때)
+  function bump26(xml, oldLast, newLast) {
+    return xml.replace(/((?:'|&apos;)26인원(?:'|&apos;)!\$?[A-Z]+\$?)(\d+)(:\$?[A-Z]+\$?)(\d+)/g, (m, a, r1, b, r2) => (+r2 >= oldLast && +r2 < newLast && +r1 <= oldLast) ? `${a}${r1}${b}${newLast + (+r2 - oldLast)}` : m);
+  }
+
   async function buildCloseXlsx(buf, D, day) {
     const JSZip = await loadJSZip();
     const zip = await JSZip.loadAsync(buf);
@@ -2826,13 +2845,14 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       sheets[s.getAttribute('name').replace(/\s/g, '')] = t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
     });
     const need = ['총인원', '명렬표', '신규', '퇴원']; const miss = need.filter(n => !sheets[n]);
+    const has26 = !!sheets['26인원'];
     if (miss.length) throw new Error(`마감보고 파일이 아닌 것 같아요. '${miss.join("', '")}' 시트가 없어요.`);
     let sst = [];
     if (zip.file('xl/sharedStrings.xml')) {
       const sd = xlParse(await read('xl/sharedStrings.xml'));
       sst = [...sd.getElementsByTagNameNS(XL_NS, 'si')].map(si => [...si.getElementsByTagNameNS(XL_NS, 't')].filter(t => t.parentNode.localName !== 'rPh' && t.parentNode.parentNode.localName !== 'rPh').map(t => t.textContent).join(''));
     }
-    const S = {}; for (const n of need) S[n] = xlSheetObj(xlParse(await read(sheets[n])));
+    const S = {}; for (const n of need.concat(has26 ? ['26인원'] : [])) S[n] = xlSheetObj(xlParse(await read(sheets[n])));
     const daySer = xlSerial(day), warn = [];
     // 총인원: 기준일 · 오늘 입학 / 퇴원 목록
     const T = S['총인원'];
@@ -2864,8 +2884,40 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const nw = xlAppendDay(S['신규'], sst, daySer, D.new, [...base, ['L', x => x.prev], ['M', x => x.inflow], ['N', x => x.change]]);
     const lf = xlAppendDay(S['퇴원'], sst, daySer, D.left, [...base, ['K', x => x.lreason], ['L', x => x.lmove], ['M', x => x.ldetail]]);
     [['신규', nw], ['퇴원', lf]].forEach(([n, r]) => { if (r.skipped.length) warn.push(`${n} 시트 ${r.skipped.join(', ')}열에 수식이 있어 그 칸은 건너뛰었어요.`); });
+    // 26인원: 그날 줄에 수기 입력 값 넣기 (줄이 없으면 날짜 줄을 이어 붙임)
+    let p26 = null, bump = null;
+    if (has26) {
+      const P = S['26인원'], v = count26(D);
+      let row = 0, lastRow = 0;
+      P.rows.forEach((el, r) => { if (r < 8) return; const b = xlGet(P, 'B' + r, sst); if (typeof b === 'number') { lastRow = Math.max(lastRow, r); if (b === daySer) row = r; } });
+      if (!row && lastRow) {
+        const lastSer = xlGet(P, 'B' + lastRow, sst);
+        if (daySer > lastSer) {
+          const add = daySer - lastSer;
+          for (let i = 1; i <= add; i++) {
+            const r = lastRow + i;
+            xlSetF(P, 'A' + r, `A${r - 1}+1`, 'A' + lastRow); xlSet(P, 'B' + r, lastSer + i, 'B' + lastRow);
+            xlSetF(P, 'C' + r, `SUM(D${r}:K${r})`, 'C' + lastRow); xlSetF(P, 'L' + r, `SUM(M${r}:P${r})`, 'L' + lastRow); xlSetF(P, 'Q' + r, `SUM(R${r}:S${r})`, 'Q' + lastRow);
+          }
+          row = lastRow + add; bump = { oldLast: lastRow, newLast: row };
+          if (add > 1) warn.push(`26인원 시트에 ${xlIso(lastSer + 1)} ~ ${xlIso(daySer - 1)} 날짜 줄이 없어서 새로 붙였어요. 그 날짜들의 인원은 비어 있으니 필요하면 직접 채워 주세요.`);
+        } else warn.push(`26인원 시트에서 ${day} 줄을 찾지 못해 값을 넣지 못했어요.`);
+      }
+      if (row) {
+        const prevR = Math.max(8, row - 1);
+        Object.entries(v).forEach(([c, n]) => xlSet(P, c + row, n, c + prevR));
+        p26 = { row, ...v };
+      }
+    } else warn.push("'26인원' 시트가 없어 그날 인원 줄은 채우지 못했어요.");
     // 저장: 열 때 전부 다시 계산 (calcChain 삭제 + fullCalcOnLoad)
-    for (const n of need) zip.file(sheets[n], xlOut(S[n].doc));
+    for (const n of Object.keys(S)) zip.file(sheets[n], xlOut(S[n].doc));
+    if (bump) {     // 늘어난 날짜 줄까지 다른 시트 수식 범위를 넓힘
+      for (const p of Object.values(sheets)) {
+        const f = zip.file(p); if (!f) continue;
+        const x = await f.async('string'); if (!x.includes('26인원')) continue;
+        const y = bump26(x, bump.oldLast, bump.newLast); if (y !== x) zip.file(p, y);
+      }
+    }
     let calc = wb.getElementsByTagNameNS(XL_NS, 'calcPr')[0];
     if (!calc) { calc = wb.createElementNS(XL_NS, 'calcPr'); wb.documentElement.appendChild(calc); }
     calc.setAttribute('fullCalcOnLoad', '1');
@@ -2879,7 +2931,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       zip.file('[Content_Types].xml', xlOut(ct));
     }
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 }, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    return { blob, report: { prevDay, cap: cap - 1, roster: D.roster.length, nw, lf, warn } };
+    return { blob, report: { prevDay, cap: cap - 1, roster: D.roster.length, nw, lf, p26, warn } };
   }
   let jszipP = null;
   function loadJSZip() {
@@ -2888,8 +2940,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   }
 
   // ---------- 퇴원률 엑셀: 전날 파일에 오늘 줄 넣기 (새 달이면 표를 새로) ----------
-  //  일자별 표 18~48행(1~31일) · G~L = 신규 재학/N · 퇴원(사유불문) 재학/N · 강제 퇴원 재학/N
-  //  퇴원(사유불문)에 강제 퇴원이 포함되므로, 등록 현황은 퇴원(사유불문)만 빼요 (강퇴를 두 번 빼지 않게)
+  //  일자별 표 18~48행(1~31일) · G~L = 26인원 시트 T~Y와 같은 값 (신규 재학/N · 퇴원(강제 제외) 재학/N · 강제 퇴원 재학/N)
+  //  퇴원과 강제 퇴원은 따로 세므로 등록 현황은 둘 다 빼요. 요약: 퇴원률(사유불문) = (퇴원 + 강제) ÷ …, (*강퇴제외) = 퇴원 ÷ …
   //  요약 칸 합계 범위는 18~48행 전체로 고침
   const RATE_FIRST = 18, RATE_LAST = 48;
   function xlSetF(S, ref, f, styleFrom) {
@@ -2931,25 +2983,26 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     let d = n(xlGet(S, 'D' + RATE_FIRST, sst)), e = n(xlGet(S, 'E' + RATE_FIRST, sst));
     for (let r = RATE_FIRST; r <= RATE_LAST; r++) {
       const b = xlGet(S, 'B' + r, sst); if (typeof b !== 'number' || xlIso(b) > uptoDay) continue;
-      d += n(xlGet(S, 'G' + r, sst)) - n(xlGet(S, 'I' + r, sst));
-      e += n(xlGet(S, 'H' + r, sst)) - n(xlGet(S, 'J' + r, sst));
+      d += n(xlGet(S, 'G' + r, sst)) - n(xlGet(S, 'I' + r, sst)) - n(xlGet(S, 'K' + r, sst));
+      e += n(xlGet(S, 'H' + r, sst)) - n(xlGet(S, 'J' + r, sst)) - n(xlGet(S, 'L' + r, sst));
     }
     return { d, e };
   }
   async function buildRateXlsx(buf, D, day) {
     const R = await rateOpen(buf), { S, sst } = R, warn = [];
     const month = day.slice(0, 7), dim = new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7), 0)).getUTCDate();
-    const isN = (x) => /N수/.test(x.grade || ''), isForced = (x) => /강제/.test((x.lreason || '') + (x.lmove || ''));
-    const cnt = (list, f) => list.filter(f).length;
-    const today = {
-      G: cnt(D.new, x => !isN(x)), H: cnt(D.new, isN),
-      I: cnt(D.left, x => !isN(x)), J: cnt(D.left, isN),
-      K: cnt(D.left, x => !isN(x) && isForced(x)), L: cnt(D.left, x => isN(x) && isForced(x)) };
+    const c26 = count26(D);
+    const today = { G: c26.T, H: c26.U, I: c26.V, J: c26.W, K: c26.X, L: c26.Y };
     let newMonth = false;
-    if (R.month !== month) {
-      if (R.month > month) throw new Error(`고른 퇴원률 파일이 ${R.month.replace('-', '년 ')}월 파일이라 ${day}보다 뒤예요.`);
+    if (R.month !== month || !R.lastDay) {     // 새 달, 또는 값이 하나도 없는 빈 양식
+      if (R.month > month && R.lastDay) throw new Error(`고른 퇴원률 파일이 ${R.month.replace('-', '년 ')}월 파일이라 ${day}보다 뒤예요.`);
       // 새 달: 전달 마지막 마감 인원을 1일 시작 인원으로
-      const prevEnd = rateTotals(R, '9999-12-31');
+      let prevEnd = rateTotals(R, '9999-12-31');
+      if (!R.lastDay) {     // 값이 하나도 없는 빈 양식: 지금 명렬에서 오늘 변동을 되돌려 1일 시작 인원으로
+        const c = count26(D), nowD = c.N + c.O + c.P, nowE = c.M;
+        prevEnd = { d: nowD - c.T + c.V + c.X, e: nowE - c.U + c.W + c.Y };
+        if (day.slice(8) !== '01') warn.push(`빈 양식으로 시작해서 ${month.slice(5)}월 1일 ~ 어제 칸은 0으로 채워져요. 1일 시작 인원(D18 · E18)은 오늘 명렬 기준이라 필요하면 직접 고쳐 주세요.`);
+      }
       const capa = D.roster.length || xlGet(S, 'C' + RATE_FIRST, sst) || '';
       for (let i = 0; i < RATE_LAST - RATE_FIRST + 1; i++) {
         const r = RATE_FIRST + i, has = i < dim;
@@ -2960,7 +3013,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       xlSet(S, 'D' + RATE_FIRST, prevEnd.d); xlSet(S, 'E' + RATE_FIRST, prevEnd.e);
       newMonth = { d: prevEnd.d, e: prevEnd.e };
       const pDim = new Date(Date.UTC(+R.month.slice(0, 4), +R.month.slice(5, 7), 0)).getUTCDate();
-      if (R.lastDay !== `${R.month}-${String(pDim).padStart(2, '0')}`) warn.push(`전달 파일이 ${R.lastDay || '빈 상태'}까지만 들어 있어서, 그 뒤 날짜의 신규 · 퇴원은 ${month.slice(5)}월 시작 인원에 반영되지 않았어요.`);
+      if (R.lastDay && R.lastDay !== `${R.month}-${String(pDim).padStart(2, '0')}`) warn.push(`전달 파일이 ${R.lastDay || '빈 상태'}까지만 들어 있어서, 그 뒤 날짜의 신규 · 퇴원은 ${month.slice(5)}월 시작 인원에 반영되지 않았어요.`);
     }
     const row = RATE_FIRST + Number(day.slice(8, 10)) - 1;
     // 빠진 날(전날 파일 이후 ~ 어제)은 0으로 채워 계산이 끊기지 않게
@@ -2977,17 +3030,19 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     // 수식 다시 쓰기 (공유 수식 없이 칸마다)
     for (let r = RATE_FIRST; r <= RATE_LAST; r++) {
       if (r > RATE_FIRST) {
-        xlSetF(S, 'D' + r, `IF($G${r - 1}<>"",D${r - 1}+G${r - 1}-I${r - 1},"")`, 'D' + (RATE_FIRST + 1));
-        xlSetF(S, 'E' + r, `IF($H${r - 1}<>"",E${r - 1}+H${r - 1}-J${r - 1},"")`, 'E' + (RATE_FIRST + 1));
+        xlSetF(S, 'D' + r, `IF($G${r - 1}<>"",D${r - 1}+G${r - 1}-I${r - 1}-K${r - 1},"")`, 'D' + (RATE_FIRST + 1));
+        xlSetF(S, 'E' + r, `IF($H${r - 1}<>"",E${r - 1}+H${r - 1}-J${r - 1}-L${r - 1},"")`, 'E' + (RATE_FIRST + 1));
       }
       xlSetF(S, 'F' + r, `IF(D${r}="","",SUM(D${r}:E${r}))`, 'F' + RATE_FIRST);
-      xlSetF(S, 'M' + r, `IF($G${r}="","",SUM(F${r}:H${r})-SUM(I${r}:J${r}))`, 'M' + RATE_FIRST);
+      xlSetF(S, 'M' + r, `IF($G${r}="","",SUM(F${r}:H${r})-SUM(I${r}:L${r}))`, 'M' + RATE_FIRST);
       xlSetF(S, 'N' + r, `IFERROR(M${r}/C${r},"-")`, 'N' + RATE_FIRST);
     }
     const A = `${RATE_FIRST}`, Z = `${RATE_LAST}`;
     [['C5', `F${A}`], ['E5', `SUM(G${A}:H${Z})`], ['G5', `SUM(I${A}:J${Z})`], ['I5', `SUM(K${A}:L${Z})`],
      ['C8', `E${A}`], ['E8', `SUM(H${A}:H${Z})`], ['G8', `SUM(J${A}:J${Z})`], ['I8', `SUM(L${A}:L${Z})`],
-     ['C11', `D${A}`], ['E11', `SUM(G${A}:G${Z})`], ['G11', `SUM(I${A}:I${Z})`], ['I11', `SUM(K${A}:K${Z})`]].forEach(([ref, f]) => xlSetF(S, ref, f));
+     ['C11', `D${A}`], ['E11', `SUM(G${A}:G${Z})`], ['G11', `SUM(I${A}:I${Z})`], ['I11', `SUM(K${A}:K${Z})`],
+     ['K5', 'IFERROR((G5+I5)/(C5+E5),"-")'], ['M5', 'IFERROR(G5/(C5+E5),"-")'], ['K8', 'IFERROR((G8+I8)/(C8+E8),"-")'], ['M8', 'IFERROR(G8/(C8+E8),"-")'],
+     ['K11', 'IFERROR((G11+I11)/(C11+E11),"-")'], ['M11', 'IFERROR(G11/(C11+E11),"-")']].forEach(([ref, f]) => xlSetF(S, ref, f));
     // 오늘 마감 인원 (검토용: 명렬과 비교)
     const end = rateTotals(R, day);
     // 저장
@@ -3029,6 +3084,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       if (C.key !== key) return; C.data = a.data; C.syncAt = Date.now();
       C.latest = { close: b.error ? null : b.data, rate: c.error ? null : c.data };
       if (b.error || c.error) C.fileErr = '보관 파일 목록을 불러오지 못했어요. (work_step26 SQL을 실행했는지 확인해 주세요)'; else C.fileErr = '';
+      ['close', 'rate'].forEach(k => { if (C.latest[k] && C.latest[k].template) { C.latest[k].day = ''; } });
       Object.keys(CL_KINDS).forEach(k => { if (!C.base[k] || C.base[k].src === 'server') C.base[k] = C.latest[k] ? { src: 'server', ...C.latest[k] } : null; });
     } catch (e) { if (C.key === key) C.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'); }
     if (S.tab === 'close') renderClose();
@@ -3043,6 +3099,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (!b) return k === 'close' ? '<span class="warn">없음 · 처음 한 번 전날 마감보고 파일을 골라 주세요 (안 고르면 단순한 4장짜리 파일로 만들어요)</span>'
                                  : '<span class="warn">없음 · 처음 한 번 전날 퇴원률 파일을 골라 주세요 (안 고르면 퇴원률은 건너뛰어요)</span>';
     const what = k === 'close' ? (b.day ? `${clFmt(b.day)} 마감 파일` : '') : (b.lastDay ? `${+b.month.slice(5)}월 파일 · ${clFmt(b.lastDay)}까지 입력` : b.day ? `${clFmt(b.day)} 파일` : '');
+    if (b.src === 'server' && b.template) return `<span class="ok">기본 양식</span> <small style="color:var(--mute)">${esc(b.name)} · ${esc(b.by || '')} ${esc(b.at || '')} 등록</small>`;
     return b.src === 'server' ? `<span class="ok">서버 보관 ${esc(what)}</span> <small style="color:var(--mute)">${esc(b.by || '')} ${esc(b.at || '')}</small>`
                               : `<span>직접 고른 파일 <b>${esc(b.name)}</b>${what ? ' · ' + esc(what) : ''}</span>`;
   }
@@ -3059,14 +3116,14 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const R = clRows(), st = {}; R.roster.forEach(x => { st[x.status] = (st[x.status] || 0) + 1; });
     const live = R.roster.length - (st['잔여석'] || 0);
     const k = (l, v, c, sub) => `<div class="kpi"><div class="l">${l}</div><div class="v" style="color:${c}">${v}${sub ? ` <small>${sub}</small>` : ''}</div></div>`;
-    const forced = R.left.filter(x => /강제/.test((x.lreason || '') + (x.lmove || ''))).length;
+    const forced = R.left.filter(x => isForcedLeave(x)).length;
     $('clKpis').innerHTML = k('명렬 (잔여석 제외)', `${live}명`, 'var(--ink)', `재원중 ${st['재원중'] || 0} · 신규 ${st['신규'] || 0} · 퇴원예정 ${st['퇴원예정'] || 0} · 입학예정 ${st['입학예정'] || 0}`)
       + k(`${clFmt(C.day)} 신규`, `${R.new.length}명`, 'var(--ok)') + k(`${clFmt(C.day)} 퇴원`, `${R.left.length}명`, 'var(--late)', forced ? `강제퇴원 ${forced}` : '') + k('잔여석', `${st['잔여석'] || 0}석`, 'var(--sub)');
     // 기준 파일
     $('clBase').innerHTML = Object.entries(CL_KINDS).map(([kk, label]) => {
       const b = C.base[kk];
       return `<div class="cl-base"><b>${label} 기준</b>${clBaseDesc(kk, b)}
-        <span class="cl-base-acts"><label class="btn-line">다른 파일 고르기<input type="file" accept=".xlsx" class="sr" data-clk="${kk}"></label>${b && b.src === 'file' && C.latest[kk] ? `<button type="button" class="btn-line" data-clsrv="${kk}">서버 보관 파일로</button>` : ''}</span></div>`;
+        <span class="cl-base-acts"><label class="btn-line">다른 파일 고르기<input type="file" accept=".xlsx" class="sr" data-clk="${kk}"></label>${b && b.src === 'file' ? `<button type="button" class="btn-line" data-cltpl="${kk}" title="보관된 파일이 하나도 없을 때 이 파일을 기준으로 써요">기본 양식으로 등록</button>` : ''}${b && b.src === 'file' && C.latest[kk] ? `<button type="button" class="btn-line" data-clsrv="${kk}">서버 보관 파일로</button>` : ''}</span></div>`;
     }).join('');
     $('clTest').checked = C.test;
     const notes = [];
@@ -3089,10 +3146,10 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const nw = R.new.map(x => `<tr><td class="num"><b>${esc(x.seat)}</b></td><td><b>${esc(x.name)}</b></td><td class="num">${esc(x.id)}</td><td>${esc(x.teacher)}</td><td>${esc(x.cls)}</td><td>${esc(x.grade)}</td>
       <td>${miss(x.prev)}</td><td>${esc(x.inflow)}</td><td>${miss(x.change)}</td><td>${x.admit && x.admit !== C.day ? `<span class="st out">입학일 ${esc(clFmt(x.admit))}</span>` : ''}</td></tr>`);
     const lf = R.left.map(x => `<tr><td class="num"><b>${esc(x.seat)}</b></td><td><b>${esc(x.name)}</b></td><td class="num">${esc(x.id)}</td><td>${esc(x.teacher)}</td><td>${esc(x.cls)}</td><td>${esc(x.grade)}</td>
-      <td>${miss(x.lreason)}${/강제/.test((x.lreason || '') + (x.lmove || '')) ? ' <span class="st out">강제퇴원</span>' : ''}</td><td>${esc(x.lmove)}</td><td style="white-space:normal;max-width:360px">${miss(x.ldetail)}</td><td>${x.sheet_date ? '시트 퇴원일' : '<span class="st empty">퇴원일 칸 비어 있음 · 처음 본 날</span>'}</td></tr>`);
+      <td>${miss(x.lreason)}${isForcedLeave(x) ? ' <span class="st out">강제퇴원</span>' : ''}</td><td>${esc(x.lmove)}</td><td style="white-space:normal;max-width:360px">${miss(x.ldetail)}</td><td>${x.sheet_date ? '시트 퇴원일' : '<span class="st empty">퇴원일 칸 비어 있음 · 처음 본 날</span>'}</td></tr>`);
     $('clBody').innerHTML = `<section class="abs-sec"><h3><span style="color:var(--ok)">${clFmt(C.day)} 신규 ${R.new.length}명</span><small>층 탭 상태가 '신규'인 학생 · 마감보고 신규 시트 · 총인원 입학 목록 · 퇴원률 신규 칸</small></h3>
         ${R.new.length ? tbl(['좌석', '이름', '학번', '담임', '반', '학년', '기존 공부 장소', '유입경로', '장소 변경 사유', ''], nw) : '<div style="padding:16px;color:var(--sub)">신규 학생이 없어요.</div>'}</section>
-      <section class="abs-sec"><h3><span style="color:var(--late)">${clFmt(C.day)} 퇴원 ${R.left.length}명</span><small>층 탭 퇴원 영역에서 퇴원일이 ${clFmt(C.day)}인 학생 · 퇴원 사유에 '강제'가 들어가면 퇴원률 강제 퇴원 칸에도 세요</small></h3>
+      <section class="abs-sec"><h3><span style="color:var(--late)">${clFmt(C.day)} 퇴원 ${R.left.length}명</span><small>층 탭 퇴원 영역에서 퇴원일이 ${clFmt(C.day)}인 학생 · 퇴원 사유에 '강제'가 들어가면 퇴원이 아니라 강제 퇴원 칸에 세요 (26인원과 같음)</small></h3>
         ${R.left.length ? tbl(['좌석', '이름', '학번', '담임', '반', '학년', '퇴원 사유', '이동장소', '세부사유', '날짜 기준'], lf) : '<div style="padding:16px;color:var(--sub)">퇴원 학생이 없어요.</div>'}</section>
       <p class="sms-note">빈 칸(빨간 글씨)은 층 탭에서 채운 뒤 [명렬 갱신]을 누르면 반영돼요. 퇴원일(C열)이 비어 있는 퇴원생은 퇴원 영역에서 처음 보인 날로 잡혀요. 학년이 N수면 퇴원률의 N 칸, 그 밖은 재학생 칸에 세요.</p>`;
   }
@@ -3153,7 +3210,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       if (bc) {
         const { blob, report } = await buildCloseXlsx(await clBaseBuf(bc), R, day);
         C.results.push({ kind: 'close', name: clName(bc, 'close', day, test), blob });
-        lines.push(`마감보고: 명렬 ${report.roster}줄 · 신규 ${report.nw.count}줄 · 퇴원 ${report.lf.count}줄${report.nw.replaced || report.lf.replaced ? ' (같은 날짜 줄은 바꿔 씀)' : ''} · 기준 ${clFmt(report.prevDay)} 파일`);
+        lines.push(`마감보고: 명렬 ${report.roster}줄 · 신규 ${report.nw.count}줄 · 퇴원 ${report.lf.count}줄${report.nw.replaced || report.lf.replaced ? ' (같은 날짜 줄은 바꿔 씀)' : ''} · 기준 ${report.prevDay ? clFmt(report.prevDay) + ' 파일' : '기본 양식'}`);
+        if (report.p26) { const q = report.p26; lines.push(`26인원 ${q.row}행: 반별 ${q.D + q.E + q.F + q.G + q.H + q.I + q.J + q.K}명 · 학년별 N수 ${q.M} · 고3 ${q.N} · 고2 ${q.O} · 고1 ${q.P} · 남 ${q.R} · 여 ${q.S} · 신규 재/N ${q.T}/${q.U} · 퇴원 재/N ${q.V}/${q.W} · 강제 재/N ${q.X}/${q.Y}`); }
         warns.push(...report.warn);
       } else {
         C.results.push({ kind: 'close', name: clName(null, 'close', day, test), blob: await clSimpleClose(R, day), simple: true });
@@ -3166,27 +3224,26 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
         C.results.push({ kind: 'rate', name: clName(br, 'rate', day, test), blob });
         const t = report.today, end = report.end, st = {}; R.roster.forEach(x => { st[x.status] = (st[x.status] || 0) + 1; });
         const live = (st['재원중'] || 0) + (st['신규'] || 0) + (st['퇴원예정'] || 0);
-        lines.push(`퇴원률: 신규 재학 ${t.G} · N ${t.H} / 퇴원 재학 ${t.I} · N ${t.J} / 강제 퇴원 재학 ${t.K} · N ${t.L}${report.newMonth ? ` · ${+day.slice(5, 7)}월 새 표 (1일 시작 재학 ${report.newMonth.d} · N ${report.newMonth.e})` : ''}`);
+        lines.push(`퇴원률: 신규 재학 ${t.G} · N ${t.H} / 퇴원(강제 제외) 재학 ${t.I} · N ${t.J} / 강제 퇴원 재학 ${t.K} · N ${t.L}${report.newMonth ? ` · ${+day.slice(5, 7)}월 새 표 (1일 시작 재학 ${report.newMonth.d} · N ${report.newMonth.e})` : ''}`);
         lines.push(`검토: 퇴원률 표로 계산한 ${clFmt(day)} 마감 인원 <b>${end.d + end.e}명</b> (재학 ${end.d} · N ${end.e}) · 명렬 재원 <b>${live}명</b> (재원중 ${st['재원중'] || 0} + 신규 ${st['신규'] || 0} + 퇴원예정 ${st['퇴원예정'] || 0})${end.d + end.e === live ? ' <span class="ok">✓ 같아요</span>' : ` <span class="warn">${end.d + end.e - live > 0 ? '+' : ''}${end.d + end.e - live}명 차이 · 빠진 신규 · 퇴원이 있는지 확인해 주세요</span>`}`);
         warns.push(...report.warn);
       } else lines.push('퇴원률: 기준 파일이 없어 건너뛰었어요. 전날 퇴원률 파일을 한 번 골라 주세요.');
       C.results.forEach(clDownload);
       // 보관 (테스트가 아닐 때만)
-      const toSave = test ? [] : C.results.filter(x => !x.simple);
-      if (toSave.length) {
-        for (const r of toSave) {
+      if (!test) {
+        for (const r of C.results.filter(x => !x.simple)) {
           const path = `${r.kind}/${day}.xlsx`;
           const up = await db.storage.from(CL_BUCKET).upload(path, r.blob, { upsert: true, contentType: r.blob.type });
           if (up.error) throw new Error(`파일은 내려받았지만 서버 보관에 실패했어요: ${up.error.message || ''}`);
           const { error } = await db.rpc('work_close_file_save', { p_kind: r.kind, p_day: day, p_path: path, p_name: r.name }); if (error) throw error;
         }
-        lines.push(`서버에 보관했어요 (${toSave.map(r => CL_KINDS[r.kind]).join(' · ')}). 다음 날은 이 파일에 이어서 만들어요.`);
-      } else if (!test) lines.push('단순 파일은 서버에 보관하지 않아요.');
+        lines.push('서버에 보관했어요. 다음 날은 이 파일에 이어서 만들어요.');
+      }
       $('clResult').innerHTML = `<div class="sms-sent" style="flex-direction:column;align-items:flex-start;gap:4px">${C.results.map((r, i) => `<span>✓ ${esc(r.name)} <button type="button" data-cldl="${i}">다시 내려받기</button></span>`).join('')}</div>
         <p class="sms-note" style="line-height:1.7">${lines.join('<br>')}</p>${warns.length ? `<p class="sms-note warn">${warns.map(esc).join('<br>')}</p>` : ''}
         <p class="sms-note">파일을 열면 엑셀이 수식을 다시 계산해요. 저장할지 물어보면 저장해 주세요. 파일 두 개를 한 번에 받을 때 브라우저가 "여러 파일 다운로드"를 물어보면 허용해 주세요.</p>`;
       toast(test ? '테스트 파일을 만들었어요. (보관 안 함)' : '마감보고 · 퇴원률 파일을 만들고 보관했어요.');
-      if (toSave.length) { C.base = { close: null, rate: null }; C.key = ''; await loadClose(true); }
+      if (!test) { C.base = { close: null, rate: null }; C.key = ''; await loadClose(true); }
     } catch (e) {
       $('clResult').innerHTML = `${C.results.length ? `<div class="sms-sent" style="flex-direction:column;align-items:flex-start;gap:4px">${C.results.map((r, i) => `<span>✓ ${esc(r.name)} <button type="button" data-cldl="${i}">내려받기</button></span>`).join('')}</div>` : ''}<p class="sms-note warn">${esc(e.message || '만들지 못했어요.')}</p>`;
     }
@@ -3216,7 +3273,22 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('clDay').onchange = (e) => { if (!e.target.value) return; S.cl.day = e.target.value; loadClose(true); };
   $('clSyncBtn').onclick = clRunSync;
   $('clBase').addEventListener('change', (e) => { const i = e.target.closest('[data-clk]'); if (i) { clPickFile(i.dataset.clk, i.files[0]); i.value = ''; } });
-  $('clBase').addEventListener('click', (e) => { const b = e.target.closest('[data-clsrv]'); if (!b) return; const k = b.dataset.clsrv; S.cl.base[k] = S.cl.latest[k] ? { src: 'server', ...S.cl.latest[k] } : null; renderClose(); });
+  $('clBase').addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-cltpl]');
+    if (t) {
+      const k = t.dataset.cltpl, b = S.cl.base[k]; if (!b || !b.buf) return;
+      if (!confirm(`'${b.name}'을(를) ${CL_KINDS[k]} 기본 양식으로 등록할까요?\n보관된 ${CL_KINDS[k]} 파일이 하나도 없을 때 이 파일을 기준으로 써요. (이미 등록된 양식은 바뀌어요)`)) return;
+      t.disabled = true;
+      try {
+        const path = `${k}/template.xlsx`;
+        const up = await db.storage.from(CL_BUCKET).upload(path, new Blob([b.buf]), { upsert: true, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); if (up.error) throw up.error;
+        const { error } = await db.rpc('work_close_file_save', { p_kind: k, p_day: null, p_path: path, p_name: b.name }); if (error) throw error;
+        toast(`${CL_KINDS[k]} 기본 양식을 등록했어요.`); await loadClose(true);
+      } catch (err) { t.disabled = false; toast(err.message || '등록하지 못했어요.', { err: true }); }
+      return;
+    }
+    const b = e.target.closest('[data-clsrv]'); if (!b) return; const k = b.dataset.clsrv; S.cl.base[k] = S.cl.latest[k] ? { src: 'server', ...S.cl.latest[k] } : null; renderClose();
+  });
   $('clTest').onchange = (e) => { S.cl.test = e.target.checked; renderClose(); };
   $('clResult').addEventListener('click', (e) => { const b = e.target.closest('[data-cldl]'); if (b && S.cl.results[+b.dataset.cldl]) clDownload(S.cl.results[+b.dataset.cldl]); });
   $('clMake').onclick = clMake;
