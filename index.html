@@ -355,6 +355,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 .mrow.lv-warn{box-shadow:inset 4px 0 0 #F59E0B} .mrow.lv-out{box-shadow:inset 4px 0 0 var(--late)}
 #slKpis{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:899px){ #slKpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important} }
+@media (max-width:899px){ #clKpis{grid-template-columns:repeat(2,minmax(0,1fr)) !important} #clMake{margin-left:0 !important;width:100%} }
 .ed-mon{align-items:center}
 .ed-mon b{padding:0 10px;font-size:15px;white-space:nowrap}
 .ed-t th.sl-h{min-width:62px;font-size:11px}
@@ -474,6 +475,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       <button type="button" id="tabKio" data-g="life" class="hidden">태블릿 기록</button>
       <button type="button" id="tabRep" data-g="rep" class="hidden">인원보고</button>
       <button type="button" id="tabExam" data-g="rep" class="hidden">모의고사</button>
+      <button type="button" id="tabClose" data-g="rep" class="hidden">마감보고</button>
       <button type="button" id="tabSch" data-g="mng" class="hidden">스케줄 관리</button>
       <button type="button" id="tabImp" data-g="mng" class="hidden">단과 관리</button>
       <button type="button" id="tabLeft" data-g="mng" class="hidden">퇴원생</button>
@@ -610,6 +612,27 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     <div id="exBody"></div>
   </main>
 
+  <main id="viewClose" class="hidden">
+    <div class="toolbar">
+      <label class="ctl">마감일 <input type="date" id="clDay" style="height:40px;border:1px solid #D5D9E0;border-radius:10px;padding:0 10px"></label>
+      <span class="rep-status" id="clSync" style="margin:0"></span>
+      <span class="rep-acts"><button type="button" class="btn-dark" id="clSyncBtn">명렬 갱신</button></span>
+    </div>
+    <div class="kpis" id="clKpis" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
+    <section class="panel">
+      <h2>마감보고 엑셀</h2>
+      <p class="sms-note" style="margin:0 0 10px">전날 마감보고 엑셀(.xlsx)을 고르면 <b>총인원 기준일 · 입학/퇴원 목록</b>, <b>명렬표</b>, <b>신규 · 퇴원 누적</b>만 오늘 내용으로 바꾼 새 파일을 내려받아요. 다른 시트 · 수식 · 서식은 그대로예요. 먼저 <b>[명렬 갱신]</b>으로 구글 시트 내용을 가져오세요.</p>
+      <div class="toolbar">
+        <label class="btn-line" style="display:inline-flex;align-items:center;gap:8px">전날 파일 고르기<input type="file" id="clFile" accept=".xlsx" class="sr"></label>
+        <span id="clFileInfo" style="font-size:13px;color:var(--sub)"></span>
+        <button type="button" class="btn-dark" id="clMake" style="margin-left:auto" disabled>마감보고 엑셀 만들기</button>
+      </div>
+      <div class="rep-status" id="clNotes" style="margin:8px 0 0"></div>
+      <div id="clResult" style="margin-top:8px"></div>
+    </section>
+    <div id="clBody" style="display:flex;flex-direction:column;gap:12px"></div>
+  </main>
+
   <main id="viewSleep" class="hidden">
     <div class="kpis" id="slKpis" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
     <div class="toolbar">
@@ -671,6 +694,8 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
 (function () {
   const SB_URL = "https://kqxhxrbpxwdmuvcyhcua.supabase.co";
   const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxeGh4cmJweHdkbXV2Y3loY3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDc4MzQsImV4cCI6MjA5MTcyMzgzNH0.Y_esLcGduxQteKUsbcwuqUKiGMMM8ItjyZFwpI2cu2A";
+  // 마감보고 [명렬 갱신] 버튼이 부르는 Apps Script 웹앱 주소 (배포 → 웹 앱 URL, https://script.google.com/macros/s/…/exec)
+  const CLOSE_HOOK_URL = "";
   const db = supabase.createClient(SB_URL, SB_KEY, { auth: { storageKey: 'work-auth', persistSession: true, autoRefreshToken: true } });
 
   // 교시표 (학생관리시스템과 같음)
@@ -738,6 +763,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (S.tab === 'abs') return S.absMode === 'sms' ? `${S.smsR || ''}교시 문자 명단` : `${(S.absP ?? 0) + 1}교시 미등원`;
     if (S.tab === 'exam') return `${X.room || '전체 고사장'}${X.hall && X.hall !== 'all' ? ' · ' + X.hall : ''} · ${X.view === 'sub' && X.data ? X.data.exam.subjects[X.sub] : '전 과목'}`;
     if (S.tab === 'rep') return `${S.repScope === 'all' ? '전층 ' : ''}${S.repForm ? repFormObj().name + ' ' : ''}인원보고`;
+    if (S.tab === 'close') return '마감보고';
     if (S.tab === 'left') return `퇴원생${S.lf.scope === 'all' ? ' · 전체 층' : ''}`;
     if (S.tab === 'edu') return `교육점수 · ${{ all: '전체', sleep: '취침 주의', late: '지각 주의', top: '10점 이상' }[S.ed.view]}${S.ed.hall === 'all' ? '' : ' · ' + S.ed.hall + '관'}`;
     if (S.tab === 'sleep') return `순찰 · ${S.sl.hall === 'all' ? '전체 관' : S.sl.hall + '관'} · ${S.sl.range === 'day' ? '하루 전체' : (S.sl.period + 1) + '교시'}`;
@@ -885,6 +911,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       if (S.tab === 'sleep') loadSleep();
       if (S.tab === 'edu') loadEdu();
       if (S.tab === 'left') loadLeft(true);
+      if (S.tab === 'close') loadClose();
       setNet(false);
       render();
     } catch (e) {
@@ -1042,7 +1069,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam(); else if (S.tab === 'sleep') renderSleep(); else if (S.tab === 'edu') renderEdu(); else if (S.tab === 'left') renderLeft();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam(); else if (S.tab === 'sleep') renderSleep(); else if (S.tab === 'edu') renderEdu(); else if (S.tab === 'left') renderLeft(); else if (S.tab === 'close') renderClose();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -2699,6 +2726,289 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('lfQ').oninput = (e) => { S.lf.q = e.target.value; renderLeft(); };
   $('lfBody').addEventListener('click', (e) => { const r = e.target.closest('[data-lf]'); if (r) openLeft(r.dataset.lf); });
 
+  // ---------- 마감보고 엑셀: 전날 파일의 칸만 바꿔서 새 파일 만들기 ----------
+  //  ExcelJS로 다시 저장하면 최신 엑셀 수식(동적 배열) · 셀 이미지가 깨질 수 있어서, xlsx 안의 XML에서 필요한 칸만 고쳐요.
+  //  · 총인원 U2 = 마감일, D6:I = 오늘 입학, M6:R = 오늘 퇴원
+  //  · 명렬표 C:O = 지금 명렬, X:Y = 전날 파일의 상태 · 이름 (어제)
+  //  · 신규 / 퇴원 = 누적 맨 아래에 오늘 줄 (같은 날짜 줄이 이미 있으면 그 자리를 바꿔 씀)
+  //  · 수식 칸은 건드리지 않고, 파일을 열 때 엑셀이 전부 다시 계산하게 함
+  const XL_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const XL_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const xlCol = (s) => [...s].reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
+  const xlLetter = (n) => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; } return s; };
+  const xlSerial = (iso) => Math.round((Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 864e5);
+  const xlIso = (n) => new Date(Date.UTC(1899, 11, 30) + n * 864e5).toISOString().slice(0, 10);
+  const xlNum = (v) => (/^\d{1,12}$/.test(String(v ?? '').trim()) ? +String(v).trim() : String(v ?? ''));   // 학번은 숫자 칸으로
+  function xlParse(text) {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) throw new Error('엑셀 파일 안의 내용을 읽지 못했어요. 다른 파일인지 확인해 주세요.');
+    return doc;
+  }
+  const xlOut = (doc) => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + new XMLSerializer().serializeToString(doc).replace(/^<\?xml[^>]*\?>\s*/, '');
+  function xlSheetObj(doc) {
+    const sd = doc.getElementsByTagNameNS(XL_NS, 'sheetData')[0];
+    const rows = new Map(); [...sd.children].forEach(r => rows.set(+r.getAttribute('r'), r));
+    return { doc, sd, rows, cells: new Map() };
+  }
+  function xlRow(S, r, create) {
+    let row = S.rows.get(r); if (row || !create) return row || null;
+    row = S.doc.createElementNS(XL_NS, 'row'); row.setAttribute('r', String(r));
+    const after = [...S.rows.keys()].filter(k => k > r).sort((a, b) => a - b)[0];
+    S.sd.insertBefore(row, after ? S.rows.get(after) : null); S.rows.set(r, row); return row;
+  }
+  function xlCell(S, ref, create) {
+    if (S.cells.has(ref)) return S.cells.get(ref);
+    const m = /^([A-Z]+)(\d+)$/.exec(ref), r = +m[2], c = xlCol(m[1]);
+    const row = xlRow(S, r, create); if (!row) return null;
+    let found = null, before = null;
+    for (const el of row.children) {
+      const cr = el.getAttribute('r'); const cc = cr ? xlCol(/^[A-Z]+/.exec(cr)[0]) : 0;
+      if (cc === c) { found = el; break; } if (cc > c) { before = el; break; }
+    }
+    if (!found && create) { found = S.doc.createElementNS(XL_NS, 'c'); found.setAttribute('r', ref); row.insertBefore(found, before); row.removeAttribute('spans'); }
+    if (found) S.cells.set(ref, found);
+    return found;
+  }
+  function xlGet(S, ref, sst) {
+    const c = xlCell(S, ref, false); if (!c) return '';
+    const t = c.getAttribute('t'), v = c.getElementsByTagNameNS(XL_NS, 'v')[0];
+    if (t === 'inlineStr') return [...c.getElementsByTagNameNS(XL_NS, 't')].map(x => x.textContent).join('');
+    if (!v) return '';
+    if (t === 's') return sst[+v.textContent] ?? '';
+    if (t === 'str' || t === 'e' || t === 'b') return v.textContent;
+    return +v.textContent;
+  }
+  const xlHasF = (S, ref) => { const c = xlCell(S, ref, false); return !!(c && c.getElementsByTagNameNS(XL_NS, 'f')[0]); };
+  // 값 넣기 (수식 칸은 건드리지 않음 → false). styleFrom: 새로 만든 칸이 따라 할 칸
+  function xlSet(S, ref, val, styleFrom) {
+    const ex = xlCell(S, ref, false);
+    if ((val === '' || val == null) && !ex) return true;
+    const c = ex || xlCell(S, ref, true);
+    if (c.getElementsByTagNameNS(XL_NS, 'f')[0]) return false;
+    if (!ex && styleFrom) { const sc = xlCell(S, styleFrom, false); const s = sc && sc.getAttribute('s'); if (s) c.setAttribute('s', s); }
+    while (c.firstChild) c.removeChild(c.firstChild);
+    c.removeAttribute('t');
+    if (val === '' || val == null) return true;
+    if (typeof val === 'number') { const v = S.doc.createElementNS(XL_NS, 'v'); v.textContent = String(val); c.appendChild(v); return true; }
+    c.setAttribute('t', 'inlineStr');
+    const is = S.doc.createElementNS(XL_NS, 'is'), t = S.doc.createElementNS(XL_NS, 't');
+    t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); t.textContent = String(val);
+    is.appendChild(t); c.appendChild(is); return true;
+  }
+  // 누적 시트(신규 · 퇴원)에 오늘 줄 쓰기. cols: [[열, 값함수], …], B열 = 날짜
+  function xlAppendDay(S, sst, daySer, list, cols) {
+    let last = 1;
+    S.rows.forEach((row, r) => { if (r > last && xlGet(S, 'B' + r, sst) !== '') last = r; });
+    let start = last + 1;
+    while (start - 1 > 1 && xlGet(S, 'B' + (start - 1), sst) === daySer) start--;     // 같은 날짜 줄은 바꿔 씀
+    const tpl = Math.max(2, start - 1), skipped = new Set();
+    const end = Math.max(last, start + list.length - 1);
+    for (let i = 0; start + i <= end; i++) {
+      const r = start + i, x = list[i];
+      [['B', () => daySer], ...cols].forEach(([col, fn]) => { if (!xlSet(S, col + r, x ? fn(x) : '', col + tpl)) skipped.add(col); });
+    }
+    return { start, count: list.length, replaced: last - start + 1, skipped: [...skipped] };
+  }
+
+  async function buildCloseXlsx(buf, D, day) {
+    const JSZip = await loadJSZip();
+    const zip = await JSZip.loadAsync(buf);
+    const read = async (p) => { const f = zip.file(p); if (!f) throw new Error(`엑셀 파일에 ${p}가 없어요.`); return f.async('string'); };
+    const wb = xlParse(await read('xl/workbook.xml'));
+    const rels = xlParse(await read('xl/_rels/workbook.xml.rels'));
+    const relMap = {}; [...rels.documentElement.children].forEach(r => { relMap[r.getAttribute('Id')] = r.getAttribute('Target'); });
+    const sheets = {}; [...wb.getElementsByTagNameNS(XL_NS, 'sheet')].forEach(s => {
+      const t = relMap[s.getAttributeNS(XL_REL, 'id') || s.getAttribute('r:id')] || '';
+      sheets[s.getAttribute('name').replace(/\s/g, '')] = t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
+    });
+    const need = ['총인원', '명렬표', '신규', '퇴원']; const miss = need.filter(n => !sheets[n]);
+    if (miss.length) throw new Error(`마감보고 파일이 아닌 것 같아요. '${miss.join("', '")}' 시트가 없어요.`);
+    let sst = [];
+    if (zip.file('xl/sharedStrings.xml')) {
+      const sd = xlParse(await read('xl/sharedStrings.xml'));
+      sst = [...sd.getElementsByTagNameNS(XL_NS, 'si')].map(si => [...si.getElementsByTagNameNS(XL_NS, 't')].filter(t => t.parentNode.localName !== 'rPh' && t.parentNode.parentNode.localName !== 'rPh').map(t => t.textContent).join(''));
+    }
+    const S = {}; for (const n of need) S[n] = xlSheetObj(xlParse(await read(sheets[n])));
+    const daySer = xlSerial(day), warn = [];
+    // 총인원: 기준일 · 오늘 입학 / 퇴원 목록
+    const T = S['총인원'];
+    const prevSer = xlGet(T, 'U2', sst);
+    const prevDay = typeof prevSer === 'number' ? xlIso(prevSer) : '';
+    xlSet(T, 'U2', daySer);
+    const lastIn = (cols) => { let l = 5; T.rows.forEach((row, r) => { if (r > l && cols.some(c => xlGet(T, c + r, sst) !== '')) l = r; }); return l; };
+    const fillList = (cols, list, fns) => {
+      const end = Math.max(lastIn(cols), 5 + list.length);
+      for (let r = 6; r <= end; r++) { const x = list[r - 6]; cols.forEach((c, i) => { if (!xlSet(T, c + r, x ? fns[i](x) : '', c + '6')) warn.push(`총인원 ${c}${r}에 수식이 있어 건너뛰었어요.`); }); }
+    };
+    fillList(['D', 'E', 'F', 'G', 'H', 'I'], D.new, [x => x.grade, x => x.name, x => x.cls, x => x.teacher, x => x.prev, x => x.change]);
+    fillList(['M', 'N', 'O', 'P', 'Q', 'R'], D.left, [x => x.grade, x => x.name, x => x.cls, x => x.teacher, x => x.lreason, x => x.ldetail]);
+    // 명렬표: C~O = 지금 명렬, X·Y = 전날 상태 · 이름
+    const M = S['명렬표'];
+    let cap = 1; M.rows.forEach((row, r) => { if (r > cap) cap = r; });
+    const RC = [['C', x => x.status], ['D', x => x.seat], ['E', x => x.teacher], ['F', x => x.name], ['G', x => xlNum(x.id)], ['H', x => x.cls], ['I', x => x.gender],
+                ['J', x => x.school], ['K', x => x.grade], ['L', x => x.kor], ['M', x => x.math], ['N', x => x.tam1], ['O', x => x.tam2]];
+    const rEnd = Math.max(cap, D.roster.length + 1);
+    for (let r = 2; r <= rEnd; r++) {
+      const oldC = xlGet(M, 'C' + r, sst), oldF = xlGet(M, 'F' + r, sst);
+      if (r <= cap) { xlSet(M, 'X' + r, oldC, 'X2'); xlSet(M, 'Y' + r, oldF, 'Y2'); }
+      const x = D.roster[r - 2];
+      RC.forEach(([c, fn]) => xlSet(M, c + r, x ? fn(x) : '', c + '2'));
+    }
+    if (D.roster.length + 1 > cap) warn.push(`명렬표 줄(${cap - 1})보다 명렬(${D.roster.length}명)이 많아서, 아래 ${D.roster.length + 1 - cap}줄은 수식 없이 값만 들어갔어요.`);
+    // 신규 · 퇴원 누적
+    const base = [['C', x => x.seat], ['D', x => x.teacher], ['E', x => x.name], ['F', x => xlNum(x.id)], ['G', x => x.cls], ['H', x => x.gender], ['I', x => x.school], ['J', x => x.grade]];
+    const nw = xlAppendDay(S['신규'], sst, daySer, D.new, [...base, ['L', x => x.prev], ['M', x => x.inflow], ['N', x => x.change]]);
+    const lf = xlAppendDay(S['퇴원'], sst, daySer, D.left, [...base, ['K', x => x.lreason], ['L', x => x.lmove], ['M', x => x.ldetail]]);
+    [['신규', nw], ['퇴원', lf]].forEach(([n, r]) => { if (r.skipped.length) warn.push(`${n} 시트 ${r.skipped.join(', ')}열에 수식이 있어 그 칸은 건너뛰었어요.`); });
+    // 저장: 열 때 전부 다시 계산 (calcChain 삭제 + fullCalcOnLoad)
+    for (const n of need) zip.file(sheets[n], xlOut(S[n].doc));
+    let calc = wb.getElementsByTagNameNS(XL_NS, 'calcPr')[0];
+    if (!calc) { calc = wb.createElementNS(XL_NS, 'calcPr'); wb.documentElement.appendChild(calc); }
+    calc.setAttribute('fullCalcOnLoad', '1');
+    zip.file('xl/workbook.xml', xlOut(wb));
+    if (zip.file('xl/calcChain.xml')) {
+      zip.remove('xl/calcChain.xml');
+      [...rels.documentElement.children].filter(r => /calcChain/.test(r.getAttribute('Target') || '')).forEach(r => r.parentNode.removeChild(r));
+      zip.file('xl/_rels/workbook.xml.rels', xlOut(rels));
+      const ct = xlParse(await read('[Content_Types].xml'));
+      [...ct.documentElement.children].filter(o => /calcChain/.test(o.getAttribute('PartName') || '')).forEach(o => o.parentNode.removeChild(o));
+      zip.file('[Content_Types].xml', xlOut(ct));
+    }
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 }, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    return { blob, report: { prevDay, cap: cap - 1, roster: D.roster.length, nw, lf, warn } };
+  }
+  let jszipP = null;
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    return jszipP ||= new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; sc.onload = () => res(window.JSZip); sc.onerror = () => { jszipP = null; rej(new Error('엑셀 만들기 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.')); }; document.head.appendChild(sc); });
+  }
+
+  // ---------- 마감보고 ----------
+  //  [명렬 갱신] → Apps Script 웹앱(구글 시트 → DB) → 화면 새로 불러오기
+  //  전날 마감보고 엑셀을 고르면 → 오늘 명렬 · 신규 · 퇴원을 넣은 새 엑셀을 내려받아요
+  S.cl = { day: null, data: null, key: '', err: '', file: null, busy: false, syncAt: 0 };
+  const clFmt = (d) => d ? `${+d.slice(5, 7)}/${+d.slice(8, 10)}` : '';
+  async function loadClose(force) {
+    const C = S.cl; if (!C.day) C.day = S.today || S.day;
+    const key = C.day; if (!force && C.key === key && C.data) return renderClose();
+    if (C.key !== key) C.data = null; C.key = key; C.err = '';
+    renderClose();
+    try {
+      const { data, error } = await db.rpc('work_close_data', { p_day: C.day }); if (error) throw error;
+      if (C.key !== key) return; C.data = data; C.syncAt = Date.now();
+    } catch (e) { if (C.key === key) C.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '불러오지 못했어요.'); }
+    if (S.tab === 'close') renderClose();
+  }
+  // 1분마다: 다른 선생님이 명렬을 갱신했으면 다시 불러옴 (갱신 시각만 먼저 확인)
+  async function pollCloseSync() {
+    const C = S.cl; if (!C.data || C.busy) return; C.syncAt = Date.now();
+    try { const { data } = await db.rpc('work_sync_status'); if (data && data.at !== (C.data.sync || {}).at) loadClose(true); } catch (e) {}
+  }
+  function clRows() {
+    const D = S.cl.data || {};
+    return { roster: D.roster || [], new: D.new || [], left: D.left || [] };
+  }
+  function renderClose() {
+    const C = S.cl, D = C.data;
+    $('clDay').value = C.day || '';
+    const sy = D && D.sync;
+    $('clSync').innerHTML = !D ? '' : sy
+      ? `<span>명렬 마지막 갱신 <b style="color:var(--ink)">${esc(clFmt(sy.at.slice(0, 10)))} ${esc(sy.at.slice(11))}</b> · ${esc(sy.by || '')}${sy.note ? ` <small style="color:var(--mute)">(${esc(sy.note)})</small>` : ''}</span>`
+      : '<span class="warn">아직 명렬을 갱신한 기록이 없어요. [명렬 갱신]을 눌러 주세요.</span>';
+    $('clSyncBtn').disabled = C.busy; $('clSyncBtn').textContent = C.busy ? '갱신 중… (30초쯤 걸려요)' : '명렬 갱신';
+    if (C.err) { $('clBody').innerHTML = `<div class="empty-note" style="color:var(--late)">${esc(C.err)}</div>`; $('clKpis').innerHTML = ''; return; }
+    if (!D) { $('clBody').innerHTML = '<div class="empty-note">불러오는 중…</div>'; $('clKpis').innerHTML = ''; return; }
+    const R = clRows(), st = {}; R.roster.forEach(x => { st[x.status] = (st[x.status] || 0) + 1; });
+    const live = R.roster.length - (st['잔여석'] || 0);
+    const k = (l, v, c, sub) => `<div class="kpi"><div class="l">${l}</div><div class="v" style="color:${c}">${v}${sub ? ` <small>${sub}</small>` : ''}</div></div>`;
+    $('clKpis').innerHTML = k('명렬 (잔여석 제외)', `${live}명`, 'var(--ink)', `재원중 ${st['재원중'] || 0} · 퇴원예정 ${st['퇴원예정'] || 0} · 입학예정 ${st['입학예정'] || 0}`)
+      + k(`${clFmt(C.day)} 신규`, `${R.new.length}명`, 'var(--ok)') + k(`${clFmt(C.day)} 퇴원`, `${R.left.length}명`, 'var(--late)') + k('잔여석', `${st['잔여석'] || 0}석`, 'var(--sub)');
+    // 엑셀 만들기 상태
+    const F = C.file, notes = [];
+    if (F && F.prevDay) {
+      if (F.prevDay > C.day) notes.push(`<span class="warn">고른 파일(${clFmt(F.prevDay)})이 마감일보다 뒤예요. 날짜를 확인해 주세요.</span>`);
+      else if (F.prevDay === C.day) notes.push(`<span class="warn">고른 파일이 이미 ${clFmt(C.day)} 파일이에요. 그날 신규 · 퇴원 줄은 바꿔 쓰지만, 명렬표 '어제'(X·Y) 칸은 오늘 값이 돼요. 전날 파일을 고르는 게 좋아요.</span>`);
+      else if (xlSerial(C.day) - xlSerial(F.prevDay) > 1) notes.push(`<span class="warn">고른 파일이 ${clFmt(F.prevDay)} 파일이라 그 사이 날짜의 신규 · 퇴원은 들어가지 않아요.</span>`);
+    }
+    if (!R.roster.length) notes.push('<span class="warn">명렬이 비어 있어요. [명렬 갱신]을 먼저 눌러 주세요.</span>');
+    $('clFileInfo').innerHTML = F ? `<b>${esc(F.name)}</b>${F.prevDay ? ` · ${esc(clFmt(F.prevDay))} 마감 파일` : ''}` : '아직 고르지 않았어요';
+    $('clNotes').innerHTML = notes.join('');
+    $('clMake').disabled = !F || !R.roster.length || C.making;
+    $('clMake').textContent = C.making ? '만드는 중…' : `${clFmt(C.day)} 마감보고 엑셀 만들기`;
+    // 신규 · 퇴원 목록
+    const tbl = (head, rows) => `<div class="tbox"><table class="sheet"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+    const miss = (v) => v ? esc(v) : '<span style="color:var(--late)">비어 있음</span>';
+    const nw = R.new.map(x => `<tr><td class="num"><b>${esc(x.seat)}</b></td><td><b>${esc(x.name)}</b></td><td class="num">${esc(x.id)}</td><td>${esc(x.teacher)}</td><td>${esc(x.cls)}</td><td>${esc(x.grade)}</td>
+      <td>${miss(x.prev)}</td><td>${esc(x.inflow)}</td><td>${miss(x.change)}</td><td>${x.admit && x.admit !== C.day ? `<span class="st out">입학일 ${esc(clFmt(x.admit))}</span>` : ''}</td></tr>`);
+    const lf = R.left.map(x => `<tr><td class="num"><b>${esc(x.seat)}</b></td><td><b>${esc(x.name)}</b></td><td class="num">${esc(x.id)}</td><td>${esc(x.teacher)}</td><td>${esc(x.cls)}</td><td>${esc(x.grade)}</td>
+      <td>${miss(x.lreason)}</td><td>${esc(x.lmove)}</td><td style="white-space:normal;max-width:360px">${miss(x.ldetail)}</td><td>${x.sheet_date ? '시트 퇴원일' : '<span class="st empty">퇴원일 칸 비어 있음 · 처음 본 날</span>'}</td></tr>`);
+    $('clBody').innerHTML = `<section class="abs-sec"><h3><span style="color:var(--ok)">${clFmt(C.day)} 신규 ${R.new.length}명</span><small>층 탭 상태가 '신규'인 학생 · 엑셀 신규 시트와 총인원 입학 목록에 들어가요</small></h3>
+        ${R.new.length ? tbl(['좌석', '이름', '학번', '담임', '반', '학년', '기존 공부 장소', '유입경로', '장소 변경 사유', ''], nw) : '<div style="padding:16px;color:var(--sub)">신규 학생이 없어요.</div>'}</section>
+      <section class="abs-sec"><h3><span style="color:var(--late)">${clFmt(C.day)} 퇴원 ${R.left.length}명</span><small>층 탭 퇴원 영역에서 퇴원일이 ${clFmt(C.day)}인 학생 · 엑셀 퇴원 시트와 총인원 퇴원 목록에 들어가요</small></h3>
+        ${R.left.length ? tbl(['좌석', '이름', '학번', '담임', '반', '학년', '퇴원 사유', '이동장소', '세부사유', '날짜 기준'], lf) : '<div style="padding:16px;color:var(--sub)">퇴원 학생이 없어요.</div>'}</section>
+      <p class="sms-note">빈 칸(빨간 글씨)은 층 탭에서 채운 뒤 [명렬 갱신]을 누르면 반영돼요. 퇴원일(C열)이 비어 있는 퇴원생은 퇴원 영역에서 처음 보인 날로 잡혀요.</p>`;
+  }
+  async function clPickFile(f) {
+    const C = S.cl; C.file = null; $('clResult').innerHTML = '';
+    if (!f) return renderClose();
+    if (!/\.xlsx$/i.test(f.name)) { toast('.xlsx 파일을 골라 주세요.', { err: true }); return renderClose(); }
+    const buf = await f.arrayBuffer();
+    let prevDay = '';
+    try {   // 총인원 U2(기준일)만 미리 읽어서 보여 줌
+      const JSZip = await loadJSZip(); const zip = await JSZip.loadAsync(buf);
+      const wb = await zip.file('xl/workbook.xml').async('string'), rels = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+      const m = /<sheet [^>]*name="총인원"[^>]*r:id="(rId\d+)"/.exec(wb) || /<sheet [^>]*r:id="(rId\d+)"[^>]*name="총인원"/.exec(wb);
+      const t = m && new RegExp(`Id="${m[1]}"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="${m[1]}"`).exec(rels);
+      const path = t && (t[1] || t[2]).replace(/^\//, '').replace(/^(?!xl\/)/, 'xl/');
+      const xml = path && zip.file(path) ? await zip.file(path).async('string') : '';
+      const u = /<c r="U2"[^>]*>(?:<f[^<]*<\/f>)?<v>(\d+(?:\.\d+)?)<\/v>/.exec(xml);
+      if (u) prevDay = xlIso(Math.floor(+u[1]));
+      if (!m) throw new Error('총인원');
+    } catch (e) { toast('마감보고 파일이 아닌 것 같아요. 총인원 · 명렬표 · 신규 · 퇴원 시트가 있는 파일을 골라 주세요.', { err: true }); $('clFile').value = ''; return renderClose(); }
+    C.file = { name: f.name, buf, prevDay };
+    renderClose();
+  }
+  async function clMake() {
+    const C = S.cl, F = C.file; if (!F || C.making) return;
+    if (F.prevDay && F.prevDay > C.day && !confirm('고른 파일이 마감일보다 뒤 날짜예요. 그래도 만들까요?')) return;
+    C.making = true; renderClose(); $('clResult').innerHTML = '<p class="sms-note">만드는 중이에요… (몇 초 걸려요)</p>';
+    try {
+      const R = clRows();
+      const { blob, report } = await buildCloseXlsx(F.buf.slice(0), R, C.day);
+      const ymd = C.day.replace(/-/g, '');
+      const name = /20\d{6}/.test(F.name) ? F.name.replace(/20\d{6}/, ymd) : `마감보고_${ymd}.xlsx`;
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+      $('clResult').innerHTML = `<div class="sms-sent">✓ ${esc(name)} 내려받기 · 명렬 ${report.roster}줄 · 신규 ${report.nw.count}줄 · 퇴원 ${report.lf.count}줄${report.nw.replaced || report.lf.replaced ? ' (같은 날짜 줄은 바꿔 씀)' : ''}</div>`
+        + (report.warn.length ? `<p class="sms-note warn">${report.warn.map(esc).join('<br>')}</p>` : '')
+        + '<p class="sms-note">파일을 열면 엑셀이 수식을 다시 계산해요. 저장할지 물어보면 저장해 주세요.</p>';
+      toast('마감보고 엑셀을 만들었어요.');
+    } catch (e) { $('clResult').innerHTML = `<p class="sms-note warn">${esc(e.message || '만들지 못했어요.')}</p>`; }
+    C.making = false; renderClose();
+  }
+  async function clRunSync() {
+    const C = S.cl; if (C.busy) return;
+    if (!CLOSE_HOOK_URL) return toast('명렬 갱신 주소(CLOSE_HOOK_URL)가 아직 비어 있어요. index.html 위쪽에 웹앱 주소를 넣어 주세요.', { err: true });
+    const { data } = await db.auth.getSession(); const token = data?.session?.access_token;
+    if (!token) return showLogin('다시 로그인해 주세요.');
+    C.busy = true; renderClose();
+    try {
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 300e3);
+      const res = await fetch(CLOSE_HOOK_URL, { method: 'POST', body: JSON.stringify({ token }), signal: ctl.signal });   // text/plain → 사전 확인 없이 바로
+      clearTimeout(tm);
+      const j = await res.json().catch(() => ({ ok: false, error: '응답을 읽지 못했어요. 웹앱 배포 설정(액세스: 모든 사용자)을 확인해 주세요.' }));
+      if (!j.ok) throw new Error(j.error || '갱신하지 못했어요.');
+      toast(`명렬을 갱신했어요. ${j.note || ''}`);
+      C.busy = false;
+      await load(); await loadClose(true);
+    } catch (e) {
+      toast(e.name === 'AbortError' ? '5분이 지나도 끝나지 않았어요. 잠시 뒤 화면을 새로 불러와 확인해 주세요.' : isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '갱신하지 못했어요.'), { err: true });
+    } finally { C.busy = false; renderClose(); }
+  }
+  $('clDay').onchange = (e) => { if (!e.target.value) return; S.cl.day = e.target.value; loadClose(true); };
+  $('clSyncBtn').onclick = clRunSync;
+  $('clFile').onchange = (e) => clPickFile(e.target.files[0]);
+  $('clMake').onclick = clMake;
+
   // ---------- 등원 현황 ----------
   function renderStat() {
     const live = S.rows.filter(r => !r.empty);
@@ -3318,7 +3628,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['left', 'tabLeft', 'viewLeft'], ['kio', 'tabKio', 'viewKio']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['left', 'tabLeft', 'viewLeft'], ['kio', 'tabKio', 'viewKio'], ['close', 'tabClose', 'viewClose']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     // 묶음 메뉴: 지금 탭이 속한 묶음만 세부 메뉴에 보여요
@@ -3344,6 +3654,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('tabExam').onclick = () => { setTab('exam'); if (S.ex.list === null) loadExamList(); else loadExamSheet(); };
   $('tabAbs').onclick = () => { setTab('abs'); if (S.absMode === 'sms') loadSms(); };
   $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
+  $('tabClose').onclick = () => { setTab('close'); loadClose(); };
 
   // ---------- 태블릿 기록 (이동일지 · 교육점수) ----------
   S.kio = null;
@@ -3382,7 +3693,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   });
   $('toTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   render = keepScroll(render); renderAbs = keepScroll(renderAbs); renderSms = keepScroll(renderSms);
-  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam); renderSleep = keepScroll(renderSleep); renderEdu = keepScroll(renderEdu); renderLeft = keepScroll(renderLeft);
+  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam); renderSleep = keepScroll(renderSleep); renderEdu = keepScroll(renderEdu); renderLeft = keepScroll(renderLeft); renderClose = keepScroll(renderClose);
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
@@ -3419,6 +3730,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (S.tab === 'kio' && Date.now() - (S.kioAt || 0) > 30e3) loadKio();   // 태블릿 기록: 30초마다 새로
     if (S.tab === 'abs' && S.absMode === 'sms' && Date.now() - (S.smsAt || 0) > 60e3) loadSms();
     if (S.tab === 'edu' && Date.now() - (S.ed.at || 0) > 60e3) loadEdu();   // 교육점수: 1분마다
+    if (S.tab === 'close' && Date.now() - (S.cl.syncAt || 0) > 60e3) pollCloseSync();   // 마감보고: 다른 선생님 명렬 갱신 확인
     if (S.tab === 'sleep' && !S.sl.busy && Date.now() - (S.sl.at || 0) > 20e3) loadSleep();   // 순찰: 다른 선생님 기록 20초마다
     if (S.tab === 'exam' && S.ex.id && !S.ex.busy && Date.now() - (S.ex.at || 0) > 15e3) loadExamSheet();   // 모의고사: 다른 선생님 체크 15초마다   // 문자 명단: 담임 제외 · 발송 기록 1분마다
     poll();
