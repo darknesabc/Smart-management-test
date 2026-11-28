@@ -872,11 +872,12 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const role = session?.user?.app_metadata?.role;
     if (role === 'student') { try { await db.auth.signOut({ scope: 'local' }); } catch (e) {} return showLogin('학생 계정으로는 들어올 수 없어요.'); }
     S.isAdmin = role === 'staff' && session?.user?.app_metadata?.is_admin === true;
-    if (!S.isAdmin && S.tab === 'staff') S.tab = 'att';
+    if (!S.isAdmin && S.grpLast && S.grpLast.mng === 'staff') S.grpLast.mng = 'sch';   // 관리자 아니면 기억된 탭도 다른 탭으로
     $('tabStaff').classList.toggle('hidden', !S.isAdmin || $('grpNav').querySelector('button.on')?.dataset.g !== 'mng');
     const um = session?.user?.user_metadata || {};
     if (ls.get('workFloor', null) === null && [1, 3, 4, 5, 6, 7].includes(+um.floor)) { S.floor = +um.floor; ls.set('workFloor', String(S.floor)); }   // 처음 들어온 선생님: 관리자가 정한 층으로
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    if (!S.isAdmin && S.tab === 'staff') setTab('sch');
     if (um.must_change_pw === true) openPwChange(true);
     const email = session?.user?.email || '';
     const id = email.split('@')[0], key = 'workMe:' + id;
@@ -3946,8 +3947,9 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('tabAtt').onclick = () => setTab('att');
   $('grpNav').onclick = (e) => {
     const b = e.target.closest('[data-g]'); if (!b) return;
+    const usable = (x) => x && !(x.dataset.admin && !S.isAdmin);     // 관리자 탭은 관리자만
     const last = (S.grpLast || {})[b.dataset.g]; const btn = last ? $('subNav').querySelector(`[data-g="${b.dataset.g}"]#tab${last[0].toUpperCase() + last.slice(1)}`) : null;
-    (btn || $('subNav').querySelector(`[data-g="${b.dataset.g}"]`)).click();
+    (usable(btn) ? btn : [...$('subNav').querySelectorAll(`[data-g="${b.dataset.g}"]`)].find(usable)).click();
   };
   $('tabStat').onclick = () => setTab('stat');
   $('tabImp').onclick = () => { setTab('imp'); loadOffs(); };
