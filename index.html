@@ -467,7 +467,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
         <span class="d" id="dayText"></span>
         <button type="button" class="icon-btn" id="nextDay" aria-label="다음날">›</button>
         <button type="button" class="today-btn hidden" id="todayBtn">오늘</button>
-        <span class="who"><span class="nm" id="whoName"></span><button type="button" class="link-btn" id="logoutBtn">로그아웃</button></span>
+        <span class="who"><span class="nm" id="whoName"></span><button type="button" class="link-btn" id="pwBtn">비밀번호</button><button type="button" class="link-btn" id="logoutBtn">로그아웃</button></span>
       </div>
     </div>
     <nav class="subtabs" id="subNav" aria-label="세부 메뉴">
@@ -483,6 +483,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       <button type="button" id="tabSch" data-g="mng" class="hidden">스케줄 관리</button>
       <button type="button" id="tabImp" data-g="mng" class="hidden">단과 관리</button>
       <button type="button" id="tabLeft" data-g="mng" class="hidden">퇴원생</button>
+      <button type="button" id="tabStaff" data-g="mng" data-admin="1" class="hidden">선생님 관리</button>
     </nav>
   </header>
 
@@ -681,6 +682,18 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     <p class="sms-note">시트에서 퇴원 처리되어 명렬에서 빠진 학생이 자동으로 모여요. 학생을 누르면 출결 · 교육점수 기록을 볼 수 있어요. 지난 날짜 출결 화면에서도 그날 자리에 <b>퇴원</b> 표시로 나와요.</p>
   </main>
 
+  <main id="viewStaff" class="hidden">
+    <div class="toolbar">
+      <button type="button" class="btn-dark" id="stAdd">한 명 추가</button>
+      <button type="button" class="btn-line" id="stBulk">여러 명 붙여넣기</button>
+      <button type="button" class="btn-line" id="stReload">새로고침</button>
+      <label class="ctl search" style="margin-left:auto"><span class="sr">검색</span><input type="search" id="stQ" placeholder="이름 · 아이디 · 층"></label>
+    </div>
+    <p class="sms-note" id="stNote" style="margin:0"></p>
+    <div id="stBody"></div>
+    <p class="sms-note">관리자에게만 보이는 메뉴예요. 선생님을 누르면 이름 · 층 고치기, 임시 비밀번호 다시 발급, 관리자 지정 · 해제, 사용 중지를 할 수 있어요. 마지막 관리자는 해제 · 사용 중지할 수 없어요.</p>
+  </main>
+
   <main id="viewStat" class="hidden">
     <div class="toolbar"><div class="pills" id="statNote" style="color:var(--sub);font-size:13px"></div></div>
     <div class="stat-grid">
@@ -729,7 +742,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     const X = S.ex || {};
     return [S.tab, S.floor, S.day, S.hall, S.range, S.range === 'day' ? '' : S.period, S.onlyAbsent, S.q, v('fTeacher'), v('fStatus'),
       S.absMode, S.absP, S.absF, v('absT'), v('absAllDay'), S.smsR, S.smsF, v('smsT'), v('smsOut'), v('kioKind'), v('kioQ'), S.repP, S.repForm, S.repScope,
-      X.id, X.room, X.hall, X.view, X.sub, X.mode, X.onlyMiss, X.q, S.sl && [S.sl.range, S.sl.range === 'day' ? '' : S.sl.period, S.sl.hall, S.sl.only, S.sl.q, S.sl.f].join('/'), S.ed && [S.ed.month, S.ed.view, S.ed.hall, S.ed.t, S.ed.q, S.ed.zero].join('/')].join('|');
+      X.id, X.room, X.hall, X.view, X.sub, X.mode, X.onlyMiss, X.q, S.sl && [S.sl.range, S.sl.range === 'day' ? '' : S.sl.period, S.sl.hall, S.sl.only, S.sl.q, S.sl.f].join('/'), S.ed && [S.ed.month, S.ed.view, S.ed.hall, S.ed.t, S.ed.q, S.ed.zero].join('/'), S.st && S.st.q].join('|');
   }
   let scrollDepth = 0, lastViewKey = '';
   function keepScroll(fn) {
@@ -768,6 +781,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     if (S.tab === 'exam') return `${X.room || '전체 고사장'}${X.hall && X.hall !== 'all' ? ' · ' + X.hall : ''} · ${X.view === 'sub' && X.data ? X.data.exam.subjects[X.sub] : '전 과목'}`;
     if (S.tab === 'rep') return `${S.repScope === 'all' ? '전층 ' : ''}${S.repForm ? repFormObj().name + ' ' : ''}인원보고`;
     if (S.tab === 'close') return '마감보고';
+    if (S.tab === 'staff') return '선생님 관리';
     if (S.tab === 'left') return `퇴원생${S.lf.scope === 'all' ? ' · 전체 층' : ''}`;
     if (S.tab === 'edu') return `교육점수 · ${{ all: '전체', sleep: '취침 주의', late: '지각 주의', top: '10점 이상' }[S.ed.view]}${S.ed.hall === 'all' ? '' : ' · ' + S.ed.hall + '관'}`;
     if (S.tab === 'sleep') return `순찰 · ${S.sl.hall === 'all' ? '전체 관' : S.sl.hall + '관'} · ${S.sl.range === 'day' ? '하루 전체' : (S.sl.period + 1) + '교시'}`;
@@ -789,7 +803,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     }
     const main = [...document.querySelectorAll('main')].find(m => !m.classList.contains('hidden') && m.offsetParent !== null);
     document.querySelectorAll('main.fitted').forEach(m => { if (m !== main) m.classList.remove('fitted'); });
-    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat', 'viewExam', 'viewSleep', 'viewEdu', 'viewLeft'].includes(main.id)) return;
+    if (!main || !['viewAtt', 'viewAbs', 'viewKio', 'viewRep', 'viewStat', 'viewExam', 'viewSleep', 'viewEdu', 'viewLeft', 'viewStaff'].includes(main.id)) return;
     const els = [...main.querySelectorAll(SCROLLERS)].filter(el => el.offsetParent !== null && !el.parentElement.closest(SCROLLERS));
     if (!els.length) return;
     main.classList.add('fitted');
@@ -857,7 +871,13 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   async function showApp(session) {
     const role = session?.user?.app_metadata?.role;
     if (role === 'student') { try { await db.auth.signOut({ scope: 'local' }); } catch (e) {} return showLogin('학생 계정으로는 들어올 수 없어요.'); }
+    S.isAdmin = role === 'staff' && session?.user?.app_metadata?.is_admin === true;
+    if (!S.isAdmin && S.tab === 'staff') S.tab = 'att';
+    $('tabStaff').classList.toggle('hidden', !S.isAdmin || $('grpNav').querySelector('button.on')?.dataset.g !== 'mng');
+    const um = session?.user?.user_metadata || {};
+    if (ls.get('workFloor', null) === null && [1, 3, 4, 5, 6, 7].includes(+um.floor)) { S.floor = +um.floor; ls.set('workFloor', String(S.floor)); }   // 처음 들어온 선생님: 관리자가 정한 층으로
     $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    if (um.must_change_pw === true) openPwChange(true);
     const email = session?.user?.email || '';
     const id = email.split('@')[0], key = 'workMe:' + id;
     let nm = ''; try { nm = localStorage.getItem(key) || ''; } catch (e) {}
@@ -916,6 +936,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       if (S.tab === 'edu') loadEdu();
       if (S.tab === 'left') loadLeft(true);
       if (S.tab === 'close') loadClose();
+      if (S.tab === 'staff') loadStaff();
       setNet(false);
       render();
     } catch (e) {
@@ -1073,7 +1094,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
     $('todayBtn').classList.toggle('hidden', isToday());
     $('nextDay').disabled = S.day >= addDays(S.today, 7);
     renderFloors();
-    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam(); else if (S.tab === 'sleep') renderSleep(); else if (S.tab === 'edu') renderEdu(); else if (S.tab === 'left') renderLeft(); else if (S.tab === 'close') renderClose();
+    if (S.tab === 'att') { renderControls(); renderKpis(); renderSheet(); } else if (S.tab === 'stat') renderStat(); else if (S.tab === 'abs') renderAbs(); else if (S.tab === 'sch') renderSchPick(); else if (S.tab === 'kio') renderKio(); else if (S.tab === 'rep') renderRep(); else if (S.tab === 'exam') renderExam(); else if (S.tab === 'sleep') renderSleep(); else if (S.tab === 'edu') renderEdu(); else if (S.tab === 'left') renderLeft(); else if (S.tab === 'close') renderClose(); else if (S.tab === 'staff') renderStaff();
   }
   function renderFloors() {
     const fl = [1, 3, 4, 5, 6, 7];
@@ -3912,13 +3933,13 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('todayBtn').onclick = () => { S.day = S.today; S.period = currentPeriodIdx(); S.absP = null; load(); };
   function setTab(t) {
     S.tab = t;
-    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['left', 'tabLeft', 'viewLeft'], ['kio', 'tabKio', 'viewKio'], ['close', 'tabClose', 'viewClose']].forEach(([k, b, v]) => {
+    [['att', 'tabAtt', 'viewAtt'], ['abs', 'tabAbs', 'viewAbs'], ['sleep', 'tabSleep', 'viewSleep'], ['edu', 'tabEdu', 'viewEdu'], ['stat', 'tabStat', 'viewStat'], ['rep', 'tabRep', 'viewRep'], ['exam', 'tabExam', 'viewExam'], ['sch', 'tabSch', 'viewSch'], ['imp', 'tabImp', 'viewImp'], ['left', 'tabLeft', 'viewLeft'], ['kio', 'tabKio', 'viewKio'], ['close', 'tabClose', 'viewClose'], ['staff', 'tabStaff', 'viewStaff']].forEach(([k, b, v]) => {
       $(b).classList.toggle('on', k === t); $(v).classList.toggle('hidden', k !== t);
     });
     // 묶음 메뉴: 지금 탭이 속한 묶음만 세부 메뉴에 보여요
     const g = $('subNav').querySelector('button.on').dataset.g; S.grpLast = S.grpLast || {}; S.grpLast[g] = t;
     $('grpNav').querySelectorAll('[data-g]').forEach(b => b.classList.toggle('on', b.dataset.g === g));
-    $('subNav').querySelectorAll('[data-g]').forEach(b => b.classList.toggle('hidden', b.dataset.g !== g));
+    $('subNav').querySelectorAll('[data-g]').forEach(b => b.classList.toggle('hidden', b.dataset.g !== g || (!!b.dataset.admin && !S.isAdmin)));   // 관리자 탭은 관리자에게만
     const hdr = document.querySelector('header.top'); if (hdr) document.documentElement.style.setProperty('--hh', hdr.offsetHeight + 'px');
     render();
   }
@@ -3939,6 +3960,201 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   $('tabAbs').onclick = () => { setTab('abs'); if (S.absMode === 'sms') loadSms(); };
   $('tabKio').onclick = () => { setTab('kio'); loadKio(); };
   $('tabClose').onclick = () => { setTab('close'); loadClose(); };
+  $('tabStaff').onclick = () => { if (!S.isAdmin) return; setTab('staff'); loadStaff(); };
+
+  // ---------- 선생님 관리 (관리자만) ----------
+  //  계정 만들기 · 비밀번호 초기화 · 사용 중지는 서버 함수 staff-admin 이 해요. (서비스 키는 서버에만)
+  //  자동 새로고침은 안 해요. 탭을 열 때 · [새로고침]을 누를 때만 불러와요.
+  S.st = { list: null, q: '', at: 0, err: '', me: '' };
+  const ST_FLOORS = [1, 3, 4, 5, 6, 7];
+  async function staffCall(action, extra) {
+    const { data, error } = await db.functions.invoke('staff-admin', { body: { action, ...(extra || {}) } });
+    if (error) {
+      let msg = error.message || '';
+      try { const st = error.context && error.context.status; const j = await error.context.json(); if (j && j.error) msg = j.error; else if (st === 404) msg = '서버 함수(staff-admin)가 아직 배포되지 않았어요.'; } catch (e) {}
+      if (/Failed to send/i.test(msg)) msg = '서버 함수에 연결하지 못했어요. 인터넷 · 배포 상태를 확인해 주세요.';
+      throw new Error(msg || '요청하지 못했어요.');
+    }
+    if (data && data.error) throw new Error(data.error);
+    return data;
+  }
+  async function loadStaff(force) {
+    const T = S.st;
+    if (!force && T.list && Date.now() - T.at < 60e3) return renderStaff();
+    T.at = Date.now();
+    if (!T.list) renderStaff();
+    try { const d = await staffCall('list'); T.list = d.list || []; T.me = d.me || ''; T.err = ''; }
+    catch (e) { T.err = isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : e.message; }
+    if (S.tab === 'staff') renderStaff();
+  }
+  const stTime = (t) => { if (!t) return ''; const d = new Date(Date.parse(t) + 9 * 3600e3).toISOString(); return `${+d.slice(5, 7)}/${+d.slice(8, 10)} ${d.slice(11, 16)}`; };
+  function stBadges(x) {
+    return `${x.admin ? '<span class="tch-b" style="margin:0 4px 0 0">관리자</span>' : ''}${x.disabled ? '<span class="st out">사용 중지</span>' : x.must_change ? '<span class="st empty">임시 비밀번호</span>' : '<span class="st">사용 중</span>'}`;
+  }
+  function renderStaff() {
+    const T = S.st;
+    if (!T.list) { $('stBody').innerHTML = `<div class="empty-note" ${T.err ? 'style="color:var(--late)"' : ''}>${esc(T.err || '불러오는 중…')}</div>`; $('stNote').textContent = ''; return; }
+    const q = T.q.trim().toLowerCase();
+    const list = T.list.filter(x => !q || [x.name, x.id, x.floor ? x.floor + '층' : ''].join(' ').toLowerCase().includes(q));
+    const on = T.list.filter(x => !x.disabled).length;
+    $('stNote').textContent = `선생님 계정 ${T.list.length}개 (사용 중 ${on} · 사용 중지 ${T.list.length - on})${q ? ` · 검색 ${list.length}개` : ''}${T.err ? ' · ' + T.err : ''}`;
+    if (!list.length) { $('stBody').innerHTML = `<div class="empty-note">${T.list.length ? '검색에 맞는 선생님이 없어요.' : '아직 선생님 계정이 없어요.'}</div>`; return; }
+    $('stBody').innerHTML = S.wide
+      ? `<div class="tbox"><table class="sheet lf-t"><thead><tr><th>이름</th><th>아이디</th><th>층</th><th>상태</th><th>마지막 로그인</th><th>만든 날</th></tr></thead><tbody>${list.map(x => `
+          <tr data-lf="${esc(x.id)}" style="${x.disabled ? 'opacity:.55' : ''}"><td><button type="button" class="name-btn">${esc(x.name || '(이름 없음)')}</button>${x.id === T.me ? ' <small class="meta2">나</small>' : ''}</td><td class="num">${esc(x.id)}</td><td>${x.floor ? x.floor + '층' : ''}</td>
+          <td>${stBadges(x)}</td><td class="num">${esc(stTime(x.last_login) || '없음')}</td><td class="num">${esc(stTime(x.created_at).split(' ')[0])}${x.created_by ? ` <small class="meta2">${esc(x.created_by)}</small>` : ''}</td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="mlist">${list.map(x => `<div class="ex-card" data-lf="${esc(x.id)}" style="${x.disabled ? 'opacity:.55' : ''}"><div class="ex-h"><button type="button" class="name-btn">${esc(x.name || '(이름 없음)')}</button><span class="meta2">${esc(x.id)}${x.floor ? ' · ' + x.floor + '층' : ''}</span><span style="margin-left:auto">${stBadges(x)}</span></div>
+          <div class="meta2">마지막 로그인 ${esc(stTime(x.last_login) || '없음')}</div></div>`).join('')}</div>`;
+  }
+  // 붙여 넣은 글 → [아이디, 이름, 층] 줄 (엑셀 칸 구분 = 탭, 쉼표도 됨)
+  function stParse(text) {
+    return String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+      .map(l => (l.includes('\t') ? l.split('\t') : l.includes(',') ? l.split(',') : l.split(/\s+/)).map(c => c.trim()))
+      .filter(c => !/아이디|^id$/i.test(c[0] || ''))
+      .map(c => ({ id: (c[0] || '').toLowerCase(), name: c[1] || '', floor: (c[2] || '').replace(/[^0-9]/g, '') }));
+  }
+  function stCheck(rows) {
+    const have = new Set((S.st.list || []).map(x => x.id)), seen = new Set();
+    return rows.map(r => {
+      let msg = '';
+      if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(r.id)) msg = '아이디는 영문 소문자 · 숫자 3~30자';
+      else if (!r.name) msg = '이름이 비었어요';
+      else if (have.has(r.id)) msg = '이미 있는 아이디';
+      else if (seen.has(r.id)) msg = '목록 안에 같은 아이디';
+      else if (r.floor && !ST_FLOORS.includes(+r.floor)) msg = '층은 ' + ST_FLOORS.join(' · ');
+      seen.add(r.id);
+      return { ...r, floor: r.floor ? +r.floor : null, msg };
+    });
+  }
+  function stClose() { const d = $('smsDlg'); d.classList.add('hidden'); d.innerHTML = ''; d.onclick = null; }
+  const stShell = (t1, t2, inner, w) => `<div class="sheet-box" style="max-width:${w || 640}px"><div class="grab"></div>
+    <div class="sh-head"><div><div class="t1">${esc(t1)}</div><div class="t2">${esc(t2)}</div></div></div>${inner}</div>`;
+  const stErr = (e) => toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (e.message || '하지 못했어요.'), { err: true });
+  // 추가하기: 한 명(입력칸) · 여러 명(붙여넣기) 같은 대화창
+  function openStaffAdd(bulk) {
+    const d = $('smsDlg');
+    const floorOpts = `<option value="">층 (선택)</option>${ST_FLOORS.map(f => `<option value="${f}" ${f === S.floor ? 'selected' : ''}>${f}층</option>`).join('')}`;
+    const input = bulk
+      ? `<div class="sh-sec"><div class="h">엑셀에서 <b>아이디 · 이름 · 층</b> 세 칸을 복사해 붙여 넣으세요 (한 줄에 한 명, 첫 줄 제목은 빼도 돼요)</div>
+          <textarea id="stPaste" style="min-height:180px;font-family:inherit" placeholder="kimss&#9;김선생&#9;4&#10;leess&#9;이선생&#9;3"></textarea></div>
+         <div id="stPrev"></div>`
+      : `<div class="sh-sec"><div class="h">아이디 (로그인할 때 쓰는 이름, 영문 소문자 · 숫자)</div><input class="sms-in" id="stId" maxlength="30" autocapitalize="off" autocomplete="off" placeholder="예: kimss"></div>
+         <div class="sh-sec"><div class="h">이름</div><input class="sms-in" id="stName" maxlength="20" placeholder="예: 김선생"></div>
+         <div class="sh-sec"><div class="h">층 (처음 로그인할 때 보여 줄 층)</div><select class="sms-in" id="stFloor">${floorOpts}</select></div>`;
+    d.innerHTML = stShell('계정은 바로 만들어지고, 임시 비밀번호가 나와요', bulk ? '선생님 여러 명 추가' : '선생님 한 명 추가', `${input}
+      <div style="display:flex;gap:8px"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button><button type="button" class="btn-dark" data-go ${bulk ? 'disabled' : ''}>${bulk ? '만들기' : '만들기'}</button></div>`);
+    d.classList.remove('hidden');
+    let rows = [];
+    const prev = () => {
+      rows = stCheck(stParse($('stPaste').value));
+      const good = rows.filter(r => !r.msg).length, b = d.querySelector('[data-go]');
+      b.disabled = !good; b.textContent = good ? `${good}명 만들기` : '만들기';
+      $('stPrev').innerHTML = rows.length ? `<div class="sh-cap">미리보기 · 만들 수 있는 ${good}명 / 전체 ${rows.length}줄${rows.length > 60 ? ' · 한 번에 60명까지' : ''}</div>
+        <div class="tbox" style="max-height:34vh"><table class="sheet"><thead><tr><th>아이디</th><th>이름</th><th>층</th><th>확인</th></tr></thead><tbody>${rows.map(r => `
+          <tr><td class="num">${esc(r.id)}</td><td>${esc(r.name)}</td><td>${r.floor ? r.floor + '층' : ''}</td><td>${r.msg ? `<span style="color:var(--late)">${esc(r.msg)} · 빼고 만듦</span>` : '<span class="st">좋아요</span>'}</td></tr>`).join('')}</tbody></table></div>` : '';
+    };
+    if (bulk) $('stPaste').addEventListener('input', prev);
+    d.onclick = async (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) return stClose();
+      const b = ev.target.closest('[data-go]'); if (!b || b.disabled) return;
+      let send;
+      if (bulk) { send = rows.filter(r => !r.msg).slice(0, 60); }
+      else {
+        const one = stCheck([{ id: $('stId').value.trim().toLowerCase(), name: $('stName').value.trim(), floor: $('stFloor').value }])[0];
+        if (one.msg) return toast(one.msg, { err: true });
+        send = [one];
+      }
+      if (!send.length) return;
+      if (bulk && !confirm(`${send.length}명의 계정을 만들까요?`)) return;
+      b.disabled = true; b.textContent = '만드는 중…';
+      try { const r = await staffCall('create', { rows: send.map(({ id, name, floor }) => ({ id, name, floor })) }); showStaffPw(r.results || []); loadStaff(true); }
+      catch (e) { b.disabled = false; b.textContent = '만들기'; stErr(e); }
+    };
+  }
+  // 임시 비밀번호 목록 (이 창을 닫으면 다시 볼 수 없음)
+  function showStaffPw(results, title) {
+    const d = $('smsDlg'), ok = results.filter(r => r.ok), bad = results.filter(r => !r.ok);
+    const text = ['이름\t아이디\t임시 비밀번호', ...ok.map(r => `${r.name}\t${r.id}\t${r.pw}`)].join('\n');
+    d.innerHTML = stShell(`${ok.length}명 완료${bad.length ? ` · ${bad.length}명 실패` : ''}`, title || '임시 비밀번호', `
+      <p class="sms-note" style="margin:0;color:var(--late)"><b>이 창을 닫으면 비밀번호를 다시 볼 수 없어요.</b> 복사해서 선생님께 따로(개인 메시지로) 전해 주세요. 첫 로그인 때 새 비밀번호로 바꾸게 돼요.</p>
+      <div class="tbox" style="max-height:46vh"><table class="sheet"><thead><tr><th>이름</th><th>아이디</th><th>임시 비밀번호</th><th>결과</th></tr></thead><tbody>${results.map(r => `
+        <tr><td>${esc(r.name || '')}</td><td class="num">${esc(r.id)}</td><td class="num"><b style="font-size:15px;letter-spacing:.5px">${esc(r.pw || '')}</b></td>
+        <td>${r.ok ? `<span class="st">완료</span>${r.warn ? ` <small class="meta2" title="${esc(r.warn)}">이름 표시 확인 필요</small>` : ''}` : `<span style="color:var(--late)">${esc(r.msg || '실패')}</span>`}</td></tr>`).join('')}</tbody></table></div>
+      <div style="display:flex;gap:8px">${ok.length ? '<button type="button" class="btn-line" data-cp>목록 복사 (엑셀에 붙여넣기)</button>' : ''}<button type="button" class="btn-dark" data-x style="margin-left:auto">다 전했어요 · 닫기</button></div>`);
+    d.classList.remove('hidden');
+    let copied = !ok.length;
+    d.onclick = (ev) => {
+      if (ev.target.closest('[data-cp]')) { copied = true; return copyText(text, '비밀번호 목록을 복사했어요.'); }
+      if (ev.target.closest('[data-x]') || ev.target === d) { if (!copied && !confirm('비밀번호를 복사하지 않았어요. 닫으면 다시 볼 수 없어요. 닫을까요?')) return; stClose(); }
+    };
+  }
+  // 한 선생님 관리: 이름 · 층 고치기, 비밀번호 초기화, 관리자, 사용 중지
+  function openStaff(id) {
+    const x = (S.st.list || []).find(v => v.id === id); if (!x) return;
+    const d = $('smsDlg'), mine = x.id === S.st.me;
+    d.innerHTML = stShell(`${x.id}${x.floor ? ' · ' + x.floor + '층' : ''} · 마지막 로그인 ${stTime(x.last_login) || '없음'}`, x.name || '(이름 없음)', `
+      <div>${stBadges(x)}</div>
+      <div class="sh-sec"><div class="h">이름 · 층</div><div style="display:flex;gap:8px"><input class="sms-in" id="stName" maxlength="20" value="${esc(x.name)}" style="flex:2">
+        <select class="sms-in" id="stFloor" style="flex:1"><option value="">층 없음</option>${ST_FLOORS.map(f => `<option value="${f}" ${f === x.floor ? 'selected' : ''}>${f}층</option>`).join('')}</select>
+        <button type="button" class="btn-line" data-a="update">저장</button></div></div>
+      <div class="sh-sec"><div class="h">계정</div><div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn-line" data-a="reset">임시 비밀번호 다시 발급</button>
+        <button type="button" class="btn-line" data-a="admin">${x.admin ? '관리자 해제' : '관리자로 지정'}</button>
+        ${mine ? '' : `<button type="button" class="btn-line" data-a="${x.disabled ? 'enable' : 'disable'}" style="${x.disabled ? '' : 'color:var(--late)'}">${x.disabled ? '사용 중지 해제' : '사용 중지'}</button>`}</div>
+        <p class="sms-note" style="margin:0">사용 중지하면 그 계정은 로그인이 막혀요(이미 열린 화면은 최대 1시간 안에 막힘). 기록은 그대로 남고, 언제든 해제할 수 있어요.</p></div>
+      <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div>`, 560);
+    d.classList.remove('hidden');
+    d.onclick = async (ev) => {
+      if (ev.target === d || ev.target.closest('[data-x]')) return stClose();
+      const b = ev.target.closest('[data-a]'); if (!b || b.disabled) return;
+      const a = b.dataset.a, nm = x.name || x.id;
+      const ask = { reset: `${nm} 선생님의 비밀번호를 새 임시 비밀번호로 바꿀까요? 지금 비밀번호는 더 이상 안 돼요.`,
+        admin: x.admin ? `${nm} 선생님을 관리자에서 해제할까요?` : `${nm} 선생님을 관리자로 지정할까요? 선생님 계정을 만들고 막을 수 있게 돼요.`,
+        disable: `${nm} 선생님 계정을 사용 중지할까요?`, enable: `${nm} 선생님 계정을 다시 쓸 수 있게 할까요?` }[a];
+      if (ask && !confirm(ask)) return;
+      b.disabled = true;
+      try {
+        if (a === 'update') {
+          const name = $('stName').value.trim(); if (!name) { b.disabled = false; return toast('이름을 적어 주세요.', { err: true }); }
+          const r = await staffCall('update', { id, name, floor: $('stFloor').value || null });
+          toast(r.warn ? '저장했어요. (이름 표시 확인 필요: ' + r.warn + ')' : '저장했어요.', r.warn ? { err: true } : {}); stClose();
+        } else if (a === 'reset') {
+          const r = await staffCall('reset', { id }); showStaffPw([{ id, name: x.name, ok: true, pw: r.pw }], '임시 비밀번호 다시 발급');
+        } else {
+          await staffCall(a === 'admin' ? 'admin' : a, a === 'admin' ? { id, on: !x.admin } : { id });
+          toast({ admin: x.admin ? '관리자에서 해제했어요.' : '관리자로 지정했어요. 그 선생님은 다시 로그인하면 메뉴가 보여요.', disable: '사용 중지했어요.', enable: '다시 쓸 수 있게 했어요.' }[a]); stClose();
+        }
+        loadStaff(true);
+      } catch (e) { b.disabled = false; stErr(e); }
+    };
+  }
+  $('stAdd').onclick = () => openStaffAdd(false);
+  $('stBulk').onclick = () => openStaffAdd(true);
+  $('stReload').onclick = () => loadStaff(true);
+  $('stQ').oninput = (e) => { S.st.q = e.target.value; renderStaff(); };
+  $('stBody').addEventListener('click', (e) => { const r = e.target.closest('[data-lf]'); if (r) openStaff(r.dataset.lf); });
+
+  // ---------- 내 비밀번호 바꾸기 (임시 비밀번호로 처음 들어오면 꼭 바꾸게) ----------
+  function openPwChange(force) {
+    const d = $('smsDlg');
+    d.innerHTML = stShell(force ? '임시 비밀번호로 로그인했어요' : '다음 로그인부터 새 비밀번호로 들어와요', force ? '새 비밀번호를 정해 주세요' : '비밀번호 바꾸기', `
+      <div class="sh-sec"><div class="h">새 비밀번호 (8자 이상)</div><input class="sms-in" id="pw1" type="password" autocomplete="new-password"></div>
+      <div class="sh-sec"><div class="h">한 번 더</div><input class="sms-in" id="pw2" type="password" autocomplete="new-password"></div>
+      <div style="display:flex;gap:8px">${force ? '<button type="button" class="btn-line" data-out>로그아웃</button>' : ''}<button type="button" class="btn-line" data-x style="margin-left:auto;${force ? 'display:none' : ''}">닫기</button><button type="button" class="btn-dark" data-go ${force ? 'style="margin-left:auto"' : ''}>바꾸기</button></div>`, 440);
+    d.classList.remove('hidden');
+    d.onclick = async (ev) => {
+      if (!force && (ev.target === d || ev.target.closest('[data-x]'))) return stClose();
+      if (ev.target.closest('[data-out]')) { stClose(); return $('logoutBtn').click(); }
+      const b = ev.target.closest('[data-go]'); if (!b || b.disabled) return;
+      const p1 = $('pw1').value, p2 = $('pw2').value;
+      if (p1.length < 8) return toast('8자 이상으로 정해 주세요.', { err: true });
+      if (p1 !== p2) return toast('두 칸이 서로 달라요.', { err: true });
+      b.disabled = true;
+      try { const { error } = await db.auth.updateUser({ password: p1, data: { must_change_pw: false } }); if (error) throw error; stClose(); toast('비밀번호를 바꿨어요.'); }
+      catch (e) { b.disabled = false; toast(isNetErr(e) ? '인터넷 연결을 확인해 주세요.' : (/different|same/i.test(e.message || '') ? '지금과 다른 비밀번호로 정해 주세요.' : /weak|short|least/i.test(e.message || '') ? '더 어려운 비밀번호로 정해 주세요.' : (e.message || '바꾸지 못했어요.')), { err: true }); }
+    };
+  }
+  $('pwBtn').onclick = () => openPwChange(false);
 
   // ---------- 태블릿 기록 (이동일지 · 교육점수) ----------
   S.kio = null;
@@ -3977,7 +4193,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
   });
   $('toTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   render = keepScroll(render); renderAbs = keepScroll(renderAbs); renderSms = keepScroll(renderSms);
-  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam); renderSleep = keepScroll(renderSleep); renderEdu = keepScroll(renderEdu); renderLeft = keepScroll(renderLeft); renderClose = keepScroll(renderClose);
+  renderKio = keepScroll(renderKio); renderRep = keepScroll(renderRep); renderStat = keepScroll(renderStat); renderExam = keepScroll(renderExam); renderSleep = keepScroll(renderSleep); renderEdu = keepScroll(renderEdu); renderLeft = keepScroll(renderLeft); renderClose = keepScroll(renderClose); renderStaff = keepScroll(renderStaff);
   wideMQ.addEventListener('change', render);
 
   // 20초마다 '바뀐 칸만' 받아 오기 (여러 선생님이 같이 체크해도 맞춰짐, 데이터 전송량 절약)
