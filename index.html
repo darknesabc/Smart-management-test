@@ -4102,8 +4102,9 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
       <div class="sh-sec"><div class="h">계정</div><div style="display:flex;gap:8px;flex-wrap:wrap">
         <button type="button" class="btn-line" data-a="reset">임시 비밀번호 다시 발급</button>
         <button type="button" class="btn-line" data-a="admin">${x.admin ? '관리자 해제' : '관리자로 지정'}</button>
-        ${mine ? '' : `<button type="button" class="btn-line" data-a="${x.disabled ? 'enable' : 'disable'}" style="${x.disabled ? '' : 'color:var(--late)'}">${x.disabled ? '사용 중지 해제' : '사용 중지'}</button>`}</div>
-        <p class="sms-note" style="margin:0">사용 중지하면 그 계정은 로그인이 막혀요(이미 열린 화면은 최대 1시간 안에 막힘). 기록은 그대로 남고, 언제든 해제할 수 있어요.</p></div>
+        ${mine ? '' : `<button type="button" class="btn-line" data-a="${x.disabled ? 'enable' : 'disable'}" style="${x.disabled ? '' : 'color:var(--late)'}">${x.disabled ? '사용 중지 해제' : '사용 중지'}</button>`}
+        ${!mine && x.disabled ? '<button type="button" class="btn-line" data-a="delete" style="color:var(--late);border-color:#FCA5A5">계정 삭제</button>' : ''}</div>
+        <p class="sms-note" style="margin:0">사용 중지하면 그 계정은 로그인이 막혀요(이미 열린 화면은 최대 1시간 안에 막힘). 기록은 그대로 남고, 언제든 해제할 수 있어요.${mine ? '' : ' <b>삭제</b>는 사용 중지한 계정에만 나오고, 되돌릴 수 없어요. 예전 기록에 남은 이름은 지워지지 않아요.'}</p></div>
       <div style="display:flex"><button type="button" class="btn-line" data-x style="margin-left:auto">닫기</button></div>`, 560);
     d.classList.remove('hidden');
     d.onclick = async (ev) => {
@@ -4114,6 +4115,11 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
         admin: x.admin ? `${nm} 선생님을 관리자에서 해제할까요?` : `${nm} 선생님을 관리자로 지정할까요? 선생님 계정을 만들고 막을 수 있게 돼요.`,
         disable: `${nm} 선생님 계정을 사용 중지할까요?`, enable: `${nm} 선생님 계정을 다시 쓸 수 있게 할까요?` }[a];
       if (ask && !confirm(ask)) return;
+      if (a === 'delete') {
+        const typed = prompt(`${nm} 선생님 계정을 완전히 삭제해요. 되돌릴 수 없어요.\n확인을 위해 아이디(${x.id})를 그대로 입력해 주세요.`);
+        if (typed === null) return;
+        if (typed.trim().toLowerCase() !== x.id) return toast('아이디가 달라서 삭제하지 않았어요.', { err: true });
+      }
       b.disabled = true;
       try {
         if (a === 'update') {
@@ -4124,7 +4130,7 @@ tr.lv-warn td:first-child{box-shadow:inset 4px 0 0 #F59E0B} tr.lv-out td:first-c
           const r = await staffCall('reset', { id }); showStaffPw([{ id, name: x.name, ok: true, pw: r.pw }], '임시 비밀번호 다시 발급');
         } else {
           await staffCall(a === 'admin' ? 'admin' : a, a === 'admin' ? { id, on: !x.admin } : { id });
-          toast({ admin: x.admin ? '관리자에서 해제했어요.' : '관리자로 지정했어요. 그 선생님은 다시 로그인하면 메뉴가 보여요.', disable: '사용 중지했어요.', enable: '다시 쓸 수 있게 했어요.' }[a]); stClose();
+          toast({ admin: x.admin ? '관리자에서 해제했어요.' : '관리자로 지정했어요. 그 선생님은 다시 로그인하면 메뉴가 보여요.', disable: '사용 중지했어요.', enable: '다시 쓸 수 있게 했어요.', delete: '계정을 삭제했어요.' }[a]); stClose();
         }
         loadStaff(true);
       } catch (e) { b.disabled = false; stErr(e); }
